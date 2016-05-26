@@ -2,13 +2,14 @@ import discord
 import asyncio
 import json
 from c_users import users_db
+from c_servers import servers_db
 import text
 import permissions
 import commands
 
 client = discord.Client()
 
-with open('config.json') as data_file:
+with open('config/config.json') as data_file:
     config = json.load(data_file)
 
 
@@ -20,6 +21,8 @@ async def on_ready():
 @client.event
 async def on_server_join(server):
     print(text.Log_JoinedServer.format(server.name, server.id, server.owner.name, server.owner.id))
+
+    # greetings stuff
     info = users_db.get_organizer(server.owner.id)
     needName = info == None or info.has_username() == False
     needKey = info == None or info.has_key() == False
@@ -32,17 +35,35 @@ async def on_server_join(server):
             msg = text.JoinServer_NeedBoth
     else:
         msg = text.JoinServer_NeedNothing
-    header = text.JoinServer_Header.format(server.name)
-    await client.send_message(server.owner, header + msg)
-    newRole = await client.create_role(server, name='ChallongeTeam')
+    header = text.JoinServer_Header.format(server.name)    
+    
+    # setup: channel in this server
     newChannel = await client.create_channel(server, 'ChallongeManagement')
-    await client.send_message(server.owner, 'a new channel and a new role have been created on the server')
     # await client.edit_channel_permissions(newChannel, newRole, )
+
+    servers_db.add(server, newChannel)
+    
+    # notify owner
+    await client.send_message(server.owner, header + msg + '\n' + text.JoinServer_SetupDone)
 
 
 @client.event
 async def on_server_remove(server):
     print(text.Log_RemovedServer.format(server.name, server.id, server.owner.name, server.owner.id))
+
+    # notify server owner
+    await client.send_message(server.owner, text.LeaveServer_Instructions.format(server.name))
+
+    # delete the Challonge role (auto created and used for management purposes)
+    for r in server.roles:
+        if r.name == 'Challonge':
+            await client.delete_role(server, r)
+
+    # delete the Management channel
+    for c in server.channels:
+        if c.name == 'ChallongeManagement':
+            await client.delete_channel(c)
+
 
 
 @client.event

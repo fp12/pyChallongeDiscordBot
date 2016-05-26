@@ -80,3 +80,7 @@ async def help(client, message):
 
 async def join(client, message):
     await client.send_message(message.channel, 'join')
+
+
+async def feedback(client, message, **kwArgs):
+    await client.send_message(message.channel, 'feedback')

@@ -30,11 +30,12 @@ class ChallongeOrganizer(ChallongeUser):
 
 class ChallongeUsersDB:
     def __init__(self):
-        with open('challongeDB.json') as data_file:
-            self._db = json.load(data_file)
+        with open('data/users.json') as in_file:
+            self._db = json.load(in_file)
 
     def _save(self):
-        pass
+        with open('data/users.json', 'w') as out_file:
+            json.dump(self._db, out_file)
 
     def get_user(self, id):
         return next((ChallongeUser(x['id'], x['challonge_username']) for x in self._db if x['id'] == id), None)

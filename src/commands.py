@@ -134,3 +134,6 @@ handler.add(Command('help', actions.help, attributes).addOptionalParams('command
 
 attributes = Attributes(minPermissions=Permissions.User, channelRestrictions=ChannelType.Tournament)
 handler.add(Command('join', actions.join, attributes))
+
+attributes = Attributes(minPermissions=Permissions.User, channelRestrictions=ChannelType.Private)
+handler.add(Command('feedback', actions.feedback, attributes).addParams('feedback'))
