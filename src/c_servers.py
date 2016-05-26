@@ -33,4 +33,3 @@ class ServersDB:
 
 
 servers_db = ServersDB()
-servers_db.dump()
