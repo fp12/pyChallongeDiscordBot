@@ -18,9 +18,10 @@ class Command:
         self.name = name
         self.cb = cb
         self.attributes = attributes
-        self.aliases = None
-        self.reqParams = None
-        self.optParams = None
+        self.aliases = []
+        self.reqParams = []
+        self.optParams = []
+        print('[{}]'.format(self.name))
 
     def addParams(self, *args):
         self.reqParams = args
@@ -86,6 +87,7 @@ class CommandsHandler:
 
     def add(self, command):
         self.commands.append(command)
+        return command
 
     def _find(self, name):
         for cmd in self.commands:
@@ -99,8 +101,41 @@ class CommandsHandler:
             return self._find(split[1])
         return None
 
+    def command(self, **kwargs):
+        def decorator(func):
+            async def wrapper(client, message, **kwArgs):
+                await func(client, message, **kwArgs)
+            return self.add(Command(func.__name__, wrapper, Attributes(**kwargs)))
+        
+        return decorator
+
 
 handler = CommandsHandler()
+
+def requiredArgs(*args):
+    def decorator(func):
+        return func.addParams(*args)
+    return decorator
+
+def optionalArgs(*args):
+    def decorator(func):
+        return func.addOptionalParams(*args)
+    return decorator
+
+def aliases(*args):
+    def decorator(func):
+        return func.addAliases(*args)
+    return decorator
+
+@aliases('t1')
+@requiredArgs('argTest')
+@handler.command(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
+async def test1(client, message, **kwArgs):
+    await client.send_message(message.channel, 'test 1')
+
+@handler.command(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Private)
+async def test2(client, message, **kwArgs):
+    await client.send_message(message.channel, 'test 2')
 
 attributes = Attributes(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
 handler.add(Command('shutdown', actions.shutdown, attributes).addAliases('exit', 'out'))
