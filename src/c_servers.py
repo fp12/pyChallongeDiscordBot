@@ -31,5 +31,10 @@ class ServersDB:
         self._save()
         self.dump()
 
+    def get_management_channel(self, server):
+        for x in self._db:
+            if x['id'] == server.id:
+                return x['managementChannel']
+        return 0
 
 servers_db = ServersDB()

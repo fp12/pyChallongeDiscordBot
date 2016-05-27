@@ -1,12 +1,14 @@
 import discord
 import asyncio
 from c_users import users_db
-
+from c_servers import servers_db
+from text import *
+from const import *
 
 async def shutdown(client, message):
     await client.send_message(message.channel, 'logging out...')
     await client.logout()
-
+    sys.exit()
 
 async def key(client, message, **kwArgs):
     users_db.set_key(message.author.id, kwArgs.get('key'))
@@ -84,3 +86,13 @@ async def join(client, message):
 
 async def feedback(client, message, **kwArgs):
     await client.send_message(message.channel, 'feedback')
+
+async def leaveserver(client, message):
+    channelId = servers_db.get_management_channel(message.channel.server)
+    await client.delete_channel(discord.Channel(server=message.channel.server, id=channelId))
+    roles = [x for x in message.channel.server.me.roles if x.name == C_RoleName]
+    #if len(roles) == 1:
+    #    await client.delete_role(message.channel.server, roles[0])
+    await client.leave_server(message.channel.server)
+
+

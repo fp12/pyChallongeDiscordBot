@@ -3,67 +3,95 @@ import asyncio
 import json
 from c_users import users_db
 from c_servers import servers_db
-import text
+from text import *
+from const import *
 import permissions
 import commands
 
+
+
 client = discord.Client()
+
+
 
 with open('config/config.json') as data_file:
     config = json.load(data_file)
+
 
 
 @client.event
 async def on_ready():
     print('on_ready')
 
-
-@client.event
-async def on_server_join(server):
-    print(text.Log_JoinedServer.format(server.name, server.id, server.owner.name, server.owner.id))
-
+async def on_challonge_role_assigned(server, chRole):
+    print('Role can manage roles:{} ({})'.format(chRole.permissions.manage_roles, chRole.permissions.value))
+    await client.move_role(server, chRole, 1)
+    
+    # now create a channel
+    chChannel = await client.create_channel(server, C_ManagementChannelName)
+        
+    servers_db.add(server, chChannel)
+    
+    await client.edit_channel_permissions(chChannel, chRole)
+    
+    # notify owner
     # greetings stuff
     info = users_db.get_organizer(server.owner.id)
     needName = info == None or info.has_username() == False
     needKey = info == None or info.has_key() == False
     if needName or needKey:
         if needName and needKey == False:
-            msg = text.JoinServer_NeedName
+            msg = T_JoinServer_NeedName
         elif needKey and needName == False:
-            msg = text.JoinServer_NeedKey.format(server.owner.name)
+            msg = T_JoinServer_NeedKey.format(server.owner.name)
         else:
-            msg = text.JoinServer_NeedBoth
+            msg = T_JoinServer_NeedAll
     else:
-        msg = text.JoinServer_NeedNothing
-    header = text.JoinServer_Header.format(server.name)    
-    
-    # setup: channel in this server
-    newChannel = await client.create_channel(server, 'ChallongeManagement')
-    # await client.edit_channel_permissions(newChannel, newRole, )
+        msg = T_JoinServer_NeedNothing
 
-    servers_db.add(server, newChannel)
+    header = T_JoinServer_Header.format(server.name)
+    footer = T_JoinServer_SetupDone
+    await client.send_message(server.owner, header + msg + '\n' + footer)
+
+@client.event
+async def on_server_join(server):
+    print(T_Log_JoinedServer.format(server.name, server.id, server.owner.name, server.owner.id))
     
-    # notify owner
-    await client.send_message(server.owner, header + msg + '\n' + text.JoinServer_SetupDone)
+    users_db.add(server.owner.id)
+
+    # get assigned role from add link
+    for r in server.me.roles:
+         if r.name == C_RoleName:
+             await on_challonge_role_assigned(server, r)
+
 
 
 @client.event
 async def on_server_remove(server):
-    print(text.Log_RemovedServer.format(server.name, server.id, server.owner.name, server.owner.id))
+    print(T_Log_RemovedServer.format(server.name, server.id, server.owner.name, server.owner.id))
+    # TODO: remove from servers_db
 
-    # notify server owner
-    await client.send_message(server.owner, text.LeaveServer_Instructions.format(server.name))
+@client.event
+async def on_member_update(before, after):
+    if before != before.server.me:
+        return
+    
+    statusChange = '/' if before.status == after.status else '{}->{}'.format(before.status, after.status)
+    gameChange = '/' if before.game == after.game else '{}->{}'.format(before.game.name, after.game.name)
+    avatarChange = '/' if before.avatar_url == after.avatar_url else '{}->{}'.format(before.avatar_url, after.avatar_url)
+    nickchange = '/' if before.nick == after.nick else '{}->{}'.format(before.nick, after.nick)
 
-    # delete the Challonge role (auto created and used for management purposes)
-    for r in server.roles:
-        if r.name == 'Challonge':
-            await client.delete_role(server, r)
+    if before.roles != after.roles:
+        deleted = [x.name for x in before.roles if x not in after.roles]
+        added = [x.name for x in after.roles if x not in before.roles]
+        rolesChange = '-{}'.format(' -'.join(deleted)) if len(deleted) > 0 else '' + ' +{}'.format(' +'.join(added)) if len(added) > 0 else ''
+    else:
+        rolesChange = '/'
+    print('on_member_update [Status {}] [Game {}] [Avatar {}] [Nick {}] [Roles {}]'.format(statusChange, gameChange, avatarChange, nickchange, rolesChange))
 
-    # delete the Management channel
-    for c in server.channels:
-        if c.name == 'ChallongeManagement':
-            await client.delete_channel(c)
-
+    added = [x for x in after.roles if x not in before.roles and x.name == C_RoleName]
+    if len(added) == 1:
+        await on_challonge_role_assigned(before.server, added[0])
 
 
 @client.event
@@ -73,7 +101,7 @@ async def on_message(message):
 
     cmd = commands.handler.validateCommand(client, message)
     if cmd != None and await cmd.validateContext(client, message):
-        print(text.Log_ValidatedCommand.format(message.author.name,
+        print(T_Log_ValidatedCommand.format(message.author.name,
                                                'PM' if message.channel.is_private else message.channel.name,
                                                message.content))
         await cmd.execute(client, message)

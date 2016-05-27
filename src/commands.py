@@ -2,7 +2,7 @@ import asyncio
 from permissions import Permissions, ChannelType, get_permissions, get_channel_type
 import discord
 import actions
-import text
+from text import *
 
 commandTrigger = '>>>'
 
@@ -19,6 +19,8 @@ class Command:
         self.cb = cb
         self.attributes = attributes
         self.aliases = None
+        self.reqParams = None
+        self.optParams = None
 
     def addParams(self, *args):
         self.reqParams = args
@@ -45,13 +47,13 @@ class Command:
                     return True
                 else:
                     await client.send_message(message.channel,
-                                              text.ValidateCommandContext_BadParameters.format(split[1],
-                                                                                               len(self.reqParams),
-                                                                                               len(split) - 2))
+                                              T_ValidateCommandContext_BadParameters.format(split[1],
+                                                                                            len(self.reqParams),
+                                                                                            len(split) - 2))
             else:
-                await client.send_message(message.channel, text.ValidateCommandContext_BadChannel.format(split[1]))
+                await client.send_message(message.channel, T_ValidateCommandContext_BadChannel.format(split[1]))
         else:
-            await client.send_message(message.channel, text.ValidateCommandContext_BadPrivileges.format(split[1]))
+            await client.send_message(message.channel, T_ValidateCommandContext_BadPrivileges.format(split[1]))
         return False
 
     def validateName(self, name):
@@ -109,6 +111,7 @@ handler.add(Command('key', actions.key, attributes).addParams('key'))
 attributes = Attributes(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
 handler.add(Command('organization', actions.organization, attributes).addParams('organization'))
 handler.add(Command('promote', actions.promote, attributes).addParams('member'))
+handler.add(Command('leaveserver', actions.leaveserver, attributes))
 
 attributes = Attributes(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.NewTourney)
 handler.add(Command('create', actions.create, attributes).addParams('name').addAliases('new'))

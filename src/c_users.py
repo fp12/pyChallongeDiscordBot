@@ -52,6 +52,17 @@ class ChallongeUsersDB:
             print(organizerFormat.format(x['id'], x['challonge_username'], x['challonge_apikey']))
         print('===========================')
 
+    def add(self, serverOwnerId):
+        found = False
+        for x in self._db:
+            if x['id'] == serverOwnerId:
+                return
+        if found == False:
+            newUser = {'id':serverOwnerId, 'challonge_username': '', 'challonge_apikey':''}
+            self._db.append(newUser)
+        self._save()
+        self.dump()
+
     def set_username(self, id, username):
         found = False
         for x in self._db:
