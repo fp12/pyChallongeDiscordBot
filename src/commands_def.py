@@ -2,7 +2,6 @@ import discord
 import asyncio
 from c_users import users_db
 from c_servers import servers_db
-from text import *
 from const import *
 from commands import commands, required_args, optional_args, aliases
 from permissions import Permissions, ChannelType

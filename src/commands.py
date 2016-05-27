@@ -1,12 +1,12 @@
 import asyncio
 from permissions import Permissions, ChannelType, get_permissions, get_channel_type
 import discord
-from text import *
+from const import *
 from enum import Enum
+import utils
 
 commandTrigger = '>>>'
-commandFormat = ' {0:15}| {1:16}| {2:13}| {3:15}| {4:20}| {5:20}'
-lineFormat = ' '
+commandFormat = '| {0:15}| {1:16}| {2:13}| {3:15}| {4:20}| {5:20}|'
 
 
 class ContextValidationError_MissingParameters(Exception):
@@ -70,22 +70,32 @@ class Command:
             return name in self.aliases
         return False
 
-    async def execute(self, client, message):
-        split = message.content.split()
-        if self.cb != None:
-            if self.reqParams != None:
-                kwargs = {}
-                offset = 2  # trigger + command
-                for count, x in enumerate(self.reqParams):
+    async def execute(self, client, message, postCommand):
+        """split = message.content.split()
+        if self.reqParams != None:
+            kwargs = {}
+            offset = 2  # trigger + command
+            for count, x in enumerate(self.reqParams):
+                kwargs[x] = split[count + offset]
+            offset = offset + len(self.reqParams)
+            for count, x in enumerate(self.optParams):
+                if count + offset < len(split):
                     kwargs[x] = split[count + offset]
-                offset = offset + len(self.reqParams)
-                for count, x in enumerate(self.optParams):
-                    if count + offset < len(split):
-                        kwargs[x] = split[count + offset]
-                await self.cb(client, message, **kwargs)
-            else:
-                await self.cb(client, message)
-
+            await self.cb(client, message, **kwargs)
+        else:
+            await self.cb(client, message)
+"""
+        if len(self.reqParams) + len(self.optParams) > 0:
+            kwargs = {}
+            for count, x in enumerate(self.reqParams):
+                kwargs[x] = postCommand[count]
+            offset = len(self.reqParams)
+            for count, x in enumerate(self.optParams):
+                if count + offset < len(postCommand):
+                    kwargs[x] = postCommand[count + offset]
+            await self.cb(client, message, **kwargs)
+        else:
+            await self.cb(client, message)
 
 class CommandsHandler:
     def __init__(self):
@@ -134,7 +144,7 @@ class CommandsHandler:
                     '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand),
                     message,
                     'PM' if message.channel.is_private else '#{0.channel.name}/{0.channel.server.name}'.format(message)))
-                await command.execute(client, message)
+                await command.execute(client, message, postCommand)
             except ContextValidationError_MissingParameters as e:
                 await client.send_message(message.channel, T_ValidateCommandContext_BadParameters.format(command.name, e.req, e.given))
             except ContextValidationError_WrongChannel:
@@ -145,18 +155,16 @@ class CommandsHandler:
                 pass                
 
     def dump(self):
-        print('===========================')
-        print('Commands registered')
-        print(commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Aliases', 'Required Args', 'Optional Args'))
-        #print(commandFormat.format(
-        for c in self._commands:
-            print(commandFormat.format(c.name, 
-                c.attributes.minPermissions.name, 
-                c.attributes.channelRestrictions.name, 
-                '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
-                '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams), 
-                '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
-        print('===========================')
+        utils.print_array(
+            'Commands registered', 
+            commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Aliases', 'Required Args', 'Optional Args'), 
+            self._commands, 
+            lambda c: commandFormat.format( c.name, 
+                                            c.attributes.minPermissions.name, 
+                                            c.attributes.channelRestrictions.name, 
+                                            '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
+                                            '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams), 
+                                            '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
 
 
 commands = CommandsHandler()

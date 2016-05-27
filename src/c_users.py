@@ -1,7 +1,8 @@
 import json
+import utils
 
-userFormat = '{0:18}|{1:20}'
-organizerFormat = '{0:18}|{1:20}|{2}'
+userFormat = '| {0:19}| {1:19}|'
+organizerFormat = '| {0:19}| {1:19}| {2:30}|'
 
 
 class ChallongeUser:
@@ -36,6 +37,7 @@ class ChallongeUsersDB:
     def _save(self):
         with open('data/users.json', 'w') as out_file:
             json.dump(self._db, out_file)
+        self.dump()
 
     def get_user(self, id):
         return next((ChallongeUser(x['id'], x['challonge_username']) for x in self._db if x['id'] == id), None)
@@ -45,12 +47,11 @@ class ChallongeUsersDB:
                      x['id'] == id), None)
 
     def dump(self):
-        print('===========================')
-        print('Challonge users database')
-        print(organizerFormat.format('Discord ID', 'Challonge Username', 'Challonge API key'))
-        for x in self._db:
-            print(organizerFormat.format(x['id'], x['challonge_username'], x['challonge_apikey']))
-        print('===========================')
+        utils.print_array(
+            'Challonge users database', 
+            organizerFormat.format('Discord ID', 'Challonge Username', 'Challonge API key'), 
+            self._db, 
+            lambda x: organizerFormat.format(x['id'], x['challonge_username'], x['challonge_apikey']))
 
     def add(self, serverOwnerId):
         found = False
@@ -61,7 +62,6 @@ class ChallongeUsersDB:
             newUser = {'id':serverOwnerId, 'challonge_username': '', 'challonge_apikey':''}
             self._db.append(newUser)
         self._save()
-        self.dump()
 
     def set_username(self, id, username):
         found = False

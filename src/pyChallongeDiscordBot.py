@@ -3,7 +3,6 @@ import asyncio
 import json
 from c_users import users_db
 from c_servers import servers_db
-from text import *
 from const import *
 import commands_def
 from commands import commands
@@ -23,7 +22,6 @@ async def on_ready():
     print('on_ready')
 
 async def on_challonge_role_assigned(server, chRole):
-    print('Role can manage roles:{} ({})'.format(chRole.permissions.manage_roles, chRole.permissions.value))
     await client.move_role(server, chRole, 1)
     
     # now create a channel
@@ -83,10 +81,10 @@ async def on_member_update(before, after):
     if before.roles != after.roles:
         deleted = [x.name for x in before.roles if x not in after.roles]
         added = [x.name for x in after.roles if x not in before.roles]
-        rolesChange = '-{}'.format(' -'.join(deleted)) if len(deleted) > 0 else '' + ' +{}'.format(' +'.join(added)) if len(added) > 0 else ''
+        rolesChange = ' -{}'.format(' -'.join(deleted)) if len(deleted) > 0 else '' + ' +{}'.format(' +'.join(added)) if len(added) > 0 else ''
     else:
         rolesChange = '/'
-    print('on_member_update [Status {}] [Game {}] [Avatar {}] [Nick {}] [Roles {}]'.format(statusChange, gameChange, avatarChange, nickchange, rolesChange))
+    print('on_member_update [Status {}] [Game {}] [Avatar {}] [Nick {}] [Roles{}]'.format(statusChange, gameChange, avatarChange, nickchange, rolesChange))
 
     added = [x for x in after.roles if x not in before.roles and x.name == C_RoleName]
     if len(added) == 1:
