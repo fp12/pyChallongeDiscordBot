@@ -2,7 +2,6 @@ import asyncio
 from permissions import Permissions, ChannelType, get_permissions, get_channel_type
 import discord
 from const import *
-from enum import Enum
 import utils
 
 commandTrigger = '>>>'
@@ -71,20 +70,6 @@ class Command:
         return False
 
     async def execute(self, client, message, postCommand):
-        """split = message.content.split()
-        if self.reqParams != None:
-            kwargs = {}
-            offset = 2  # trigger + command
-            for count, x in enumerate(self.reqParams):
-                kwargs[x] = split[count + offset]
-            offset = offset + len(self.reqParams)
-            for count, x in enumerate(self.optParams):
-                if count + offset < len(split):
-                    kwargs[x] = split[count + offset]
-            await self.cb(client, message, **kwargs)
-        else:
-            await self.cb(client, message)
-"""
         if len(self.reqParams) + len(self.optParams) > 0:
             kwargs = {}
             for count, x in enumerate(self.reqParams):
@@ -97,6 +82,14 @@ class Command:
         else:
             await self.cb(client, message)
 
+    def pretty_print(self):
+        return '**{0}** {1}{2}\n```{3}{4}```'.format(  self.name,
+                                                        ' ' if len(self.reqParams) == 0 else ' '.join(['['+p+']' for p in self.reqParams]),
+                                                        ' ' if len(self.optParams) == 0 else ' '.join(['{'+p+'}' for p in self.optParams]),
+                                                        '' if self.cb.__doc__ == None else self.cb.__doc__,
+
+
+
 class CommandsHandler:
     def __init__(self):
         self._commands = []
@@ -105,7 +98,7 @@ class CommandsHandler:
         self._commands.append(command)
         return command
 
-    def _find(self, name):
+    def find(self, name):
         for command in self._commands:
             if command.validate_name(name):
                 return command
@@ -114,13 +107,14 @@ class CommandsHandler:
     def _validate_command(self, client, message):
         split = message.content.split()
         if split[0] == commandTrigger or client.user in message.mentions:
-            return self._find(split[1])
+            return self.find(split[1])
         return None
 
     def register(self, **kwargs):
         def decorator(func):
             async def wrapper(client, message, **kwArgs):
                 await func(client, message, **kwArgs)
+            wrapper.__doc__ = func.__doc__
             return self._add(Command(func.__name__, wrapper, Attributes(**kwargs)))
         return decorator
 
@@ -128,10 +122,10 @@ class CommandsHandler:
         split = message.content.split()
 
         if message.channel.is_private:
-            command = self._find(split[0])
+            command = self.find(split[0])
             offset = 1
         elif split[0] == commandTrigger or client.user in message.mentions:
-            command = self._find(split[1])
+            command = self.find(split[1])
             offset = 2
         else:
             command = None

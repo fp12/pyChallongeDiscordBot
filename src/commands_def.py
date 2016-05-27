@@ -3,7 +3,7 @@ import asyncio
 from c_users import users_db
 from c_servers import servers_db
 from const import *
-from commands import commands, required_args, optional_args, aliases
+from commands_core import commands, required_args, optional_args, aliases, ContextValidationError_InsufficientPrivileges
 from permissions import Permissions, ChannelType
 
 
@@ -17,6 +17,11 @@ async def shutdown(client, message):
 @required_args('key')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Private)
 async def key(client, message, **kwArgs):
+    """Store your Challonge API key
+    Look for it here: https://challonge.com/settings/developer
+    Argument:
+    key -- the Challonge API key
+    """
     users_db.set_key(message.author.id, kwArgs.get('key'))
     await client.send_message(message.author, 'Thanks, your key has been set!')
 
@@ -24,6 +29,11 @@ async def key(client, message, **kwArgs):
 @optional_args('organization')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
 async def organization(client, message, **kwargs):
+    """Set up a Challonge organization for a server (optional)
+    Challonge organizations can be created here: http://challonge.com/organizations/new
+    Optional Argument:
+    organization -- if not set, it will be reset for this server
+    """
     servers_db.edit(message.channel.server, **kwargs)
     organization = kwargs.get('organization')
     if organization == None:
@@ -35,6 +45,11 @@ async def organization(client, message, **kwargs):
 @required_args('member')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
 async def promote(client, message, **kwargs):
+    """Promote a server member to be able to manage tournaments with you
+    You can also simply assign the member the role 'Challonge'
+    Arguments:
+    member -- the member to be granted management rights
+    """
     member = message.channel.server.get_member_named(kwargs.get('member'))
     if member != None:
         for r in message.channel.server.me.roles:
@@ -53,6 +68,9 @@ async def promote(client, message, **kwargs):
 
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
 async def leaveserver(client, message):
+    """Kicks the Challonge bot out of your server
+    Using this command, the bot will also remove the management channel it created
+    """
     channelId = servers_db.get_management_channel(message.channel.server)
     await client.delete_channel(discord.Channel(server=message.channel.server, id=channelId))
     roles = [x for x in message.channel.server.me.roles if x.name == C_RoleName]
@@ -62,9 +80,15 @@ async def leaveserver(client, message):
 
 
 @aliases('new')
-@required_args('name', 'type')
+@required_args('name', 'urlname', 'type')
 @commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.NewTourney)
 async def create(client, message, **kwArgs):
+    """Creates a new tournament
+    Arguments:
+    name -- will be used as the tournament name
+    urlname -- name used for the url http://challonge.com/urlname
+    type -- can be [singleelim, doubleelim]
+    """
     await client.send_message(message.channel, 'create')
 
 
@@ -129,15 +153,31 @@ async def checkin(client, message):
 
 @required_args('username')
 @commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Any)
-async def username(client, message, **kwArgs):
-    users_db.set_username(message.author.id, kwArgs.get('username'))
-    await client.send_message(message.author, 'Your username \'{}\' has been set!'.format(kwArgs.get('username')))
+async def username(client, message, **kwargs):
+    users_db.set_username(message.author.id, kwargs.get('username'))
+    await client.send_message(message.author, 'Your username \'{}\' has been set!'.format(kwargs.get('username')))
 
 
 @optional_args('command')
 @commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Any)
 async def help(client, message, **kwargs):
-    await client.send_message(message.channel, 'help')
+    commandName = kwargs.get('command')
+    if commandName != None:
+        command = commands.find(commandName)
+        if command != None:
+            try:
+                command.validate_context(client, message, [])
+            except ContextValidationError_InsufficientPrivileges:
+                await client.send_message(message.channel, 'Inexistent command or you don\'t have enough privileges to use it')
+                return
+            except:
+                pass
+                
+            await client.send_message(  message.channel, command.pretty_print())
+        else:
+            await client.send_message(message.channel, 'Inexistent command or you don\'t have enough privileges to use it')
+    else:
+        await client.send_message(message.channel, 'Full help')
 
 
 @commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Tournament)

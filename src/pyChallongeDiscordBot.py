@@ -5,7 +5,7 @@ from c_users import users_db
 from c_servers import servers_db
 from const import *
 import commands_def
-from commands import commands
+from commands_core import commands
 
 print('app_start')
 
