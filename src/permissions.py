@@ -1,5 +1,4 @@
 from enum import Enum
-import discord
 
 
 class Permissions(Enum):
@@ -39,9 +38,10 @@ def get_permissions(user, server):
     return Permissions.User
 
 
+
 def get_channel_type(channel):
-    if channel.server.owner.id == '150316380992962562':
-        return ChannelType.Dev
     if channel.is_private:
         return ChannelType.Private
+    if channel.server.owner.id == '150316380992962562':
+        return ChannelType.Dev    
     return ChannelType.Other

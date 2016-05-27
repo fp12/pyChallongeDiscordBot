@@ -5,9 +5,8 @@ from c_users import users_db
 from c_servers import servers_db
 from text import *
 from const import *
-import permissions
+import commands_def
 from commands import commands
-
 
 
 client = discord.Client()
@@ -99,12 +98,11 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    cmd = commands.validate_command(client, message)
-    if cmd != None and await cmd.validate_context(client, message):
-        print(T_Log_ValidatedCommand.format(message.author.name,
-                                               'PM' if message.channel.is_private else message.channel.name,
-                                               message.content))
-        await cmd.execute(client, message)
+    await commands.try_execute(client, message)
+
+    #cmd = commands.validate_command(client, message)
+    #if cmd != None and await cmd.validate_context(client, message):    
+    #    await cmd.execute(client, message)
 
 
 client.run(config['Discord']['token'])

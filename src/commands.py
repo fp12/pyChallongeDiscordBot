@@ -2,9 +2,23 @@ import asyncio
 from permissions import Permissions, ChannelType, get_permissions, get_channel_type
 import discord
 from text import *
+from enum import Enum
 
 commandTrigger = '>>>'
 commandFormat = ' {0:15}| {1:16}| {2:13}| {3:15}| {4:20}| {5:20}'
+lineFormat = ' '
+
+
+class ContextValidationError_MissingParameters(Exception):
+    def __init__(self, req, given):
+        self.req = req
+        self.given = given
+
+class ContextValidationError_WrongChannel(Exception):
+    pass
+
+class ContextValidationError_InsufficientPrivileges(Exception):
+    pass
 
 class Attributes:
     def __init__(self, **kwargs):
@@ -33,27 +47,21 @@ class Command:
         self.aliases = args
         return self
 
-    async def validate_context(self, client, message):
-        split = message.content.split()
+    def validate_context(self, client, message, postCommand):
         authorPerms = get_permissions(message.author, message.server)
         if authorPerms >= self.attributes.minPermissions:
             channelType = get_channel_type(message.channel)
             if channelType == ChannelType.Dev or channelType & self.attributes.channelRestrictions:
                 reqParamsExpected = 0 if self.reqParams == None else len(self.reqParams)
-                optParamsExpected = 0 if self.optParams == None else len(self.optParams)
-                givenParams = len(split) - 2
+                givenParams = len(postCommand)
                 if givenParams >= reqParamsExpected:
                     return True
                 else:
-                    await client.send_message(message.channel,
-                                              T_ValidateCommandContext_BadParameters.format(split[1],
-                                                                                            len(self.reqParams),
-                                                                                            len(split) - 2))
+                    raise ContextValidationError_MissingParameters(reqParamsExpected, givenParams)                    
             else:
-                await client.send_message(message.channel, T_ValidateCommandContext_BadChannel.format(split[1]))
+                raise ContextValidationError_WrongChannel               
         else:
-            await client.send_message(message.channel, T_ValidateCommandContext_BadPrivileges.format(split[1]))
-        return False
+            raise ContextValidationError_InsufficientPrivileges
 
     def validate_name(self, name):
         if self.name == name:
@@ -93,7 +101,7 @@ class CommandsHandler:
                 return command
         return None
 
-    def validate_command(self, client, message):
+    def _validate_command(self, client, message):
         split = message.content.split()
         if split[0] == commandTrigger or client.user in message.mentions:
             return self._find(split[1])
@@ -106,10 +114,41 @@ class CommandsHandler:
             return self._add(Command(func.__name__, wrapper, Attributes(**kwargs)))
         return decorator
 
+    async def try_execute(self, client, message):
+        split = message.content.split()
+
+        if message.channel.is_private:
+            command = self._find(split[0])
+            offset = 1
+        elif split[0] == commandTrigger or client.user in message.mentions:
+            command = self._find(split[1])
+            offset = 2
+        else:
+            command = None
+
+        if command != None:
+            postCommand = split[offset:len(split)]
+            try:
+                command.validate_context(client, message, postCommand)
+                print(T_Log_ValidatedCommand.format(command.name, 
+                    '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand),
+                    message,
+                    'PM' if message.channel.is_private else '#{0.channel.name}/{0.channel.server.name}'.format(message)))
+                await command.execute(client, message)
+            except ContextValidationError_MissingParameters as e:
+                await client.send_message(message.channel, T_ValidateCommandContext_BadParameters.format(command.name, e.req, e.given))
+            except ContextValidationError_WrongChannel:
+                await client.send_message(message.channel, T_ValidateCommandContext_BadChannel.format(command.name))
+            except ContextValidationError_InsufficientPrivileges:
+                await client.send_message(message.channel, T_ValidateCommandContext_BadPrivileges.format(command.name))
+            finally:
+                pass                
+
     def dump(self):
         print('===========================')
         print('Commands registered')
         print(commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Aliases', 'Required Args', 'Optional Args'))
+        #print(commandFormat.format(
         for c in self._commands:
             print(commandFormat.format(c.name, 
                 c.attributes.minPermissions.name, 

@@ -25,13 +25,13 @@ async def key(client, message, **kwArgs):
 
 @required_args('organization')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
-async def organization(client, message):
+async def organization(client, message, **kwargs):
     await client.send_message(message.channel, 'organization')
 
 
 @required_args('member')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
-async def promote(client, message):
+async def promote(client, message, **kwargs):
     await client.send_message(message.channel, 'promote')
 
 
@@ -86,13 +86,13 @@ async def finalize(client, message):
 
 @required_args('player1', 'player2')
 @commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Tournament)
-async def reopen(client, message):
+async def reopen(client, message, **kwargs):
     await client.send_message(message.channel, 'reopen')
 
 
 @required_args('score')
 @commands.register(minPermissions=Permissions.Participant, channelRestrictions=ChannelType.Tournament)
-async def update(client, message):
+async def update(client, message, **kwargs):
     await client.send_message(message.channel, 'update')
 
 
@@ -120,7 +120,7 @@ async def username(client, message, **kwArgs):
 
 @optional_args('command')
 @commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Any)
-async def help(client, message):
+async def help(client, message, **kwargs):
     await client.send_message(message.channel, 'help')
 
 
