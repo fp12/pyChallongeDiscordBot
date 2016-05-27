@@ -87,6 +87,7 @@ class Command:
                                                         ' ' if len(self.reqParams) == 0 else ' '.join(['['+p+']' for p in self.reqParams]),
                                                         ' ' if len(self.optParams) == 0 else ' '.join(['{'+p+'}' for p in self.optParams]),
                                                         '' if self.cb.__doc__ == None else self.cb.__doc__,
+                                                        '' if len(self.aliases) == 0 else 'Aliases: ' + ' / '.join(self.aliases))
 
 
 
