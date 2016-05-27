@@ -6,7 +6,7 @@ from c_servers import servers_db
 from text import *
 from const import *
 import permissions
-import commands
+from commands import commands
 
 
 
@@ -99,8 +99,8 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    cmd = commands.handler.validateCommand(client, message)
-    if cmd != None and await cmd.validateContext(client, message):
+    cmd = commands.validate_command(client, message)
+    if cmd != None and await cmd.validate_context(client, message):
         print(T_Log_ValidatedCommand.format(message.author.name,
                                                'PM' if message.channel.is_private else message.channel.name,
                                                message.content))

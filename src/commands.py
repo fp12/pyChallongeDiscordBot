@@ -1,11 +1,10 @@
 import asyncio
 from permissions import Permissions, ChannelType, get_permissions, get_channel_type
 import discord
-import actions
 from text import *
 
 commandTrigger = '>>>'
-
+commandFormat = ' {0:15}| {1:16}| {2:13}| {3:15}| {4:20}| {5:20}'
 
 class Attributes:
     def __init__(self, **kwargs):
@@ -21,21 +20,20 @@ class Command:
         self.aliases = []
         self.reqParams = []
         self.optParams = []
-        print('[{}]'.format(self.name))
 
-    def addParams(self, *args):
+    def add_required_params(self, *args):
         self.reqParams = args
         return self
 
-    def addOptionalParams(self, *args):
+    def add_optional_params(self, *args):
         self.optParams = args
         return self
 
-    def addAliases(self, *args):
+    def add_aliases(self, *args):
         self.aliases = args
         return self
 
-    async def validateContext(self, client, message):
+    async def validate_context(self, client, message):
         split = message.content.split()
         authorPerms = get_permissions(message.author, message.server)
         if authorPerms >= self.attributes.minPermissions:
@@ -57,7 +55,7 @@ class Command:
             await client.send_message(message.channel, T_ValidateCommandContext_BadPrivileges.format(split[1]))
         return False
 
-    def validateName(self, name):
+    def validate_name(self, name):
         if self.name == name:
             return True
         elif self.aliases != None:
@@ -83,95 +81,61 @@ class Command:
 
 class CommandsHandler:
     def __init__(self):
-        self.commands = []
+        self._commands = []
 
-    def add(self, command):
-        self.commands.append(command)
+    def _add(self, command):
+        self._commands.append(command)
         return command
 
     def _find(self, name):
-        for cmd in self.commands:
-            if cmd.validateName(name):
-                return cmd
+        for command in self._commands:
+            if command.validate_name(name):
+                return command
         return None
 
-    def validateCommand(self, client, message):
+    def validate_command(self, client, message):
         split = message.content.split()
         if split[0] == commandTrigger or client.user in message.mentions:
             return self._find(split[1])
         return None
 
-    def command(self, **kwargs):
+    def register(self, **kwargs):
         def decorator(func):
             async def wrapper(client, message, **kwArgs):
                 await func(client, message, **kwArgs)
-            return self.add(Command(func.__name__, wrapper, Attributes(**kwargs)))
-        
+            return self._add(Command(func.__name__, wrapper, Attributes(**kwargs)))
         return decorator
 
+    def dump(self):
+        print('===========================')
+        print('Commands registered')
+        print(commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Aliases', 'Required Args', 'Optional Args'))
+        for c in self._commands:
+            print(commandFormat.format(c.name, 
+                c.attributes.minPermissions.name, 
+                c.attributes.channelRestrictions.name, 
+                '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
+                '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams), 
+                '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
+        print('===========================')
 
-handler = CommandsHandler()
 
-def requiredArgs(*args):
+commands = CommandsHandler()
+
+
+def required_args(*args):
     def decorator(func):
-        return func.addParams(*args)
+        return func.add_required_params(*args)
     return decorator
 
-def optionalArgs(*args):
+
+def optional_args(*args):
     def decorator(func):
-        return func.addOptionalParams(*args)
+        return func.add_optional_params(*args)
     return decorator
+
 
 def aliases(*args):
     def decorator(func):
-        return func.addAliases(*args)
+        return func.add_aliases(*args)
     return decorator
-
-@aliases('t1')
-@requiredArgs('argTest')
-@handler.command(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
-async def test1(client, message, **kwArgs):
-    await client.send_message(message.channel, 'test 1')
-
-@handler.command(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Private)
-async def test2(client, message, **kwArgs):
-    await client.send_message(message.channel, 'test 2')
-
-attributes = Attributes(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
-handler.add(Command('shutdown', actions.shutdown, attributes).addAliases('exit', 'out'))
-
-attributes = Attributes(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Private)
-handler.add(Command('key', actions.key, attributes).addParams('key'))
-
-attributes = Attributes(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
-handler.add(Command('organization', actions.organization, attributes).addParams('organization'))
-handler.add(Command('promote', actions.promote, attributes).addParams('member'))
-handler.add(Command('leaveserver', actions.leaveserver, attributes))
-
-attributes = Attributes(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.NewTourney)
-handler.add(Command('create', actions.create, attributes).addParams('name').addAliases('new'))
-
-attributes = Attributes(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Tournament)
-handler.add(Command('shuffleseeds', actions.shuffleseeds, attributes).addAliases('shuffle'))
-handler.add(Command('start', actions.start, attributes).addAliases('launch'))
-handler.add(Command('reset', actions.reset, attributes))
-handler.add(Command('checkin_start', actions.checkin_start, attributes))
-handler.add(Command('checkin_stop', actions.checkin_stop, attributes))
-handler.add(Command('finalize', actions.finalize, attributes))
-handler.add(Command('reopen', actions.reopen, attributes).addParams('player1', 'player2'))
-
-attributes = Attributes(minPermissions=Permissions.Participant, channelRestrictions=ChannelType.Tournament)
-handler.add(Command('update', actions.update, attributes).addParams('score'))
-handler.add(Command('forfeit', actions.forfeit, attributes))
-handler.add(Command('next', actions.next, attributes))
-handler.add(Command('checkin', actions.checkin, attributes))
-
-attributes = Attributes(minPermissions=Permissions.User, channelRestrictions=ChannelType.Any)
-handler.add(Command('username', actions.username, attributes).addParams('username'))
-handler.add(Command('help', actions.help, attributes).addOptionalParams('command'))
-
-attributes = Attributes(minPermissions=Permissions.User, channelRestrictions=ChannelType.Tournament)
-handler.add(Command('join', actions.join, attributes))
-
-attributes = Attributes(minPermissions=Permissions.User, channelRestrictions=ChannelType.Private)
-handler.add(Command('feedback', actions.feedback, attributes).addParams('feedback'))
