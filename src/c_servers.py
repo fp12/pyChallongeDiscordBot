@@ -34,7 +34,7 @@ class ServersDB:
             self._db, 
             lambda x: serverFormat.format(  x['id'], 
                                             x['managementChannel'], 
-                                            x['organization'], 
+                                            'None' if x['organization'] == None or x['organization'] == '' else x['organization'], 
                                             'None' if len(x['tournaments']) == 0 else 'Some tournaments'))
 
     def add(self, server, channel):
@@ -49,6 +49,16 @@ class ServersDB:
             newServer = {'id':server.id, 'managementChannel':channel.id, 'organization':'', 'tournaments':[]}
             self._db.append(newServer)
         self._save()
+
+    def edit(self, server, **kwargs):
+        for x in self._db:
+            if x['id'] == server.id:
+                x['organization'] = kwargs.get('organization')
+                if kwargs.get('tournaments', '') != None:
+                    pass #TODO
+                self._save()
+                return
+        print('Attempted to edit db for [Server \'{0.name}\' ({0.id})] but it was not found'.format(server))
 
     def remove(self, serverid):
         for x in self._db:

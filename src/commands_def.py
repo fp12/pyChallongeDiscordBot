@@ -12,26 +12,43 @@ from permissions import Permissions, ChannelType
 async def shutdown(client, message):
     await client.send_message(message.channel, 'logging out...')
     await client.logout()
-    sys.exit()
 
 
 @required_args('key')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Private)
 async def key(client, message, **kwArgs):
     users_db.set_key(message.author.id, kwArgs.get('key'))
-    await client.send_message(message.author, 'Your key has been set!')
+    await client.send_message(message.author, 'Thanks, your key has been set!')
 
 
-@required_args('organization')
+@optional_args('organization')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
 async def organization(client, message, **kwargs):
-    await client.send_message(message.channel, 'organization')
+    servers_db.edit(message.channel.server, **kwargs)
+    organization = kwargs.get('organization')
+    if organization == None:
+        await client.send_message(message.channel, 'Organization has been reset for this server')
+    else:
+        await client.send_message(message.channel, 'Organization **{0}** has been set for this server'.format(organization))
 
 
 @required_args('member')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
 async def promote(client, message, **kwargs):
-    await client.send_message(message.channel, 'promote')
+    member = message.channel.server.get_member_named(kwargs.get('member'))
+    if member != None:
+        for r in message.channel.server.me.roles:
+            if r.name == C_RoleName:
+                try:
+                    await client.add_roles(member, *[r])
+                    await client.send_message(message.channel, 'Member **{0.name}** has been promoted'.format(member))
+                except discord.errors.Forbidden:
+                    await client.send_message(message.channel, 'Could not promote Member **{0.name}** because of insufficient permissions.\n{1} could you add Role \'Challonge\' to this member? Thanks!'.format(member, message.channel.server.owner.mention))
+                finally:
+                    return
+        print('command:promote could not find \'{}\' Role? roles: {}'.format(C_RoleName, ' '.join([r.name for r in message.channel.server.me.roles])))
+    else:
+        await client.send_message(message.channel, 'Could not find Member **{}**'.format(kwargs.get('member')))
 
 
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
@@ -135,5 +152,5 @@ async def feedback(client, message, **kwArgs):
 
 
 
-commands.dump()
+#commands.dump()
 

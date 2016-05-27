@@ -7,6 +7,7 @@ from const import *
 import commands_def
 from commands import commands
 
+print('app_start')
 
 client = discord.Client()
 
@@ -54,7 +55,6 @@ async def on_challonge_role_assigned(server, chRole):
     await client.edit_channel_permissions(chChannel, chRole)
     
     # notify owner
-    # greetings stuff
     info = users_db.get_organizer(server.owner.id)
     needName = info == None or info.has_username() == False
     needKey = info == None or info.has_key() == False
@@ -118,3 +118,5 @@ async def on_message(message):
 
 
 client.run(config['Discord']['token'])
+
+print('app_stop')
