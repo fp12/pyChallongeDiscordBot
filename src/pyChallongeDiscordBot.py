@@ -16,10 +16,32 @@ with open('config/config.json') as data_file:
     config = json.load(data_file)
 
 
+async def greet_new_server(server):
+    print(T_Log_JoinedServer.format(server.name, server.id, server.owner.name, server.owner.id))
+
+    users_db.add(server.owner.id)
+
+    # get assigned role from add link
+    for r in server.me.roles:
+         if r.name == C_RoleName:
+             await on_challonge_role_assigned(server, r)
+
+async def cleanup_removed_server(serverid):
+    servers_db.remove(serverid)
+    print(T_Log_CleanRemovedServer.format(serverid))
 
 @client.event
 async def on_ready():
-    print('on_ready')
+    print('on_ready')    
+
+    for s in [s for s in client.servers if s.id not in servers_db]:
+        print('on_ready greeting new server ' + s.name)
+        await greet_new_server(s)
+
+    for sid in [s['id'] for s in servers_db if client.get_server(s['id']) not in client.servers]:
+        print('on_ready cleaning removed server ' + sid)
+        await cleanup_removed_server(sid)
+
 
 async def on_challonge_role_assigned(server, chRole):
     await client.move_role(server, chRole, 1)
@@ -51,22 +73,14 @@ async def on_challonge_role_assigned(server, chRole):
     await client.send_message(server.owner, header + msg + '\n' + footer)
 
 @client.event
-async def on_server_join(server):
-    print(T_Log_JoinedServer.format(server.name, server.id, server.owner.name, server.owner.id))
-    
-    users_db.add(server.owner.id)
-
-    # get assigned role from add link
-    for r in server.me.roles:
-         if r.name == C_RoleName:
-             await on_challonge_role_assigned(server, r)
-
+async def on_server_join(server):    
+    await greet_new_server(server)
 
 
 @client.event
 async def on_server_remove(server):
     print(T_Log_RemovedServer.format(server.name, server.id, server.owner.name, server.owner.id))
-    # TODO: remove from servers_db
+    await cleanup_removed_server(server.id)
 
 @client.event
 async def on_member_update(before, after):

@@ -10,6 +10,7 @@ T_JoinServer_SetupDone = 'Bot setup has been completed: a new channel has been c
 
 T_Log_JoinedServer = 'on_server_join [Server \'{0}\' ({1})] [Owner \'{2}\' ({3})]'
 T_Log_RemovedServer = 'on_server_removed [Server \'{0}\' ({1})] [Owner \'{2}\' ({3})]'
+T_Log_CleanRemovedServer = 'cleaned Server {} from db'
 T_Log_ValidatedCommand = 'on_validated_command [{0}{1}] from @{2.author.name} on {3}'
 
 T_ValidateCommandContext_BadParameters = 'Wrong number of parameters for command ***{0}*** (expected: {1}, given: {2})'
