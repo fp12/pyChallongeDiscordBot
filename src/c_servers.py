@@ -1,5 +1,7 @@
 import json
 import utils
+from enum import Enum
+
 
 
 serverFormat = '| {0:19}| {1:19}| {2:19}| {3:13}|'
@@ -74,3 +76,31 @@ class ServersDB:
         return 0
 
 servers_db = ServersDB()
+
+
+class ChannelType(Enum):
+    Dev = 1 << 0
+    Private = 1 << 1
+    Mods = 1 << 2
+    Tournament = 1 << 3
+    Other = 1 << 4
+    NewTourney = Mods | Other
+    Any = Dev | Private | Mods | Tournament | Other
+    
+    def __or__(self, other):
+        return self.value | other.value
+    
+    def __and__(self, other):
+        return self.value & other.value
+
+
+def get_channel_type(channel):
+    #if channel.server.owner.id == '150316380992962562':
+    #    return ChannelType.Dev
+    if channel.is_private:
+        return ChannelType.Private
+    if len([s for s in servers_db if s['id'] == channel.server.id and s['managementChannel'] == channel.id]) == 1:
+        return ChannelType.Mods
+    if len([s for s in servers_db if s['id'] == channel.server.id and False]) == 1: # TODO
+        return ChannelType.Tournament
+    return ChannelType.Other

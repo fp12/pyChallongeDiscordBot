@@ -1,10 +1,10 @@
 import discord
 import asyncio
 from c_users import users_db
-from c_servers import servers_db
+from c_servers import servers_db, ChannelType
 from const import *
 from commands_core import commands, required_args, optional_args, aliases, ContextValidationError_InsufficientPrivileges
-from permissions import Permissions, ChannelType
+from permissions import Permissions
 
 
 @aliases('exit', 'out')
@@ -173,11 +173,14 @@ async def help(client, message, **kwargs):
             except:
                 pass
                 
-            await client.send_message(  message.channel, command.pretty_print())
+            await client.send_message(message.channel, command.pretty_print())
         else:
             await client.send_message(message.channel, 'Inexistent command or you don\'t have enough privileges to use it')
     else:
-        await client.send_message(message.channel, 'Full help')
+        commandsStr = []
+        for c in commands.get_authorized_commands(client, message):
+            commandsStr.append(c.simple_print())
+        await client.send_message(message.channel, '```Usable commands for you in this channel:```\n' + '\n'.join(commandsStr) + '')
 
 
 @commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Tournament)

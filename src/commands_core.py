@@ -1,5 +1,6 @@
 import asyncio
-from permissions import Permissions, ChannelType, get_permissions, get_channel_type
+from permissions import Permissions, get_permissions
+from c_servers import ChannelType, get_channel_type
 import discord
 from const import *
 import utils
@@ -83,11 +84,13 @@ class Command:
             await self.cb(client, message)
 
     def pretty_print(self):
-        return '**{0}** {1}{2}\n```{3}{4}```'.format(  self.name,
-                                                        ' ' if len(self.reqParams) == 0 else ' '.join(['['+p+']' for p in self.reqParams]),
-                                                        ' ' if len(self.optParams) == 0 else ' '.join(['{'+p+'}' for p in self.optParams]),
-                                                        '' if self.cb.__doc__ == None else self.cb.__doc__,
-                                                        '' if len(self.aliases) == 0 else 'Aliases: ' + ' / '.join(self.aliases))
+        return self.simple_print() + '\n```{3}{4}```'.format('' if self.cb.__doc__ == None else self.cb.__doc__,
+                                                           'No aliases' if len(self.aliases) == 0 else 'Aliases: ' + ' / '.join(self.aliases))
+
+    def simple_print(self):
+        return '**{0}** {1}{2}'.format( self.name,
+                                        ' ' if len(self.reqParams) == 0 else ' '.join(['['+p+']' for p in self.reqParams]),
+                                        ' ' if len(self.optParams) == 0 else ' '.join(['{'+p+'}' for p in self.optParams]))
 
 
 
@@ -146,8 +149,18 @@ class CommandsHandler:
                 await client.send_message(message.channel, T_ValidateCommandContext_BadChannel.format(command.name))
             except ContextValidationError_InsufficientPrivileges:
                 await client.send_message(message.channel, T_ValidateCommandContext_BadPrivileges.format(command.name))
-            finally:
-                pass                
+
+    def get_authorized_commands(self, client, message):
+        for command in self._commands:
+            try:
+                command.validate_context(client, message, [])
+            except ContextValidationError_WrongChannel:
+                continue
+            except ContextValidationError_InsufficientPrivileges:
+                continue
+            except:
+                pass
+            yield command
 
     def dump(self):
         utils.print_array(
