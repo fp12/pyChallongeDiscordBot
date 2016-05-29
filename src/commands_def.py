@@ -5,7 +5,8 @@ from c_servers import servers_db, ChannelType
 from const import *
 from commands_core import commands, required_args, optional_args, aliases, ContextValidationError_InsufficientPrivileges
 from permissions import Permissions
-
+from Crypto.Cipher import AES
+from config import appConfig
 
 @aliases('exit', 'out')
 @commands.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
@@ -22,7 +23,12 @@ async def key(client, message, **kwargs):
     Argument:
     key -- the Challonge API key
     """
-    users_db.set_key(message.author.id, kwargs.get('key'))
+    obj = AES.new(appConfig['cryptoKey'], AES.MODE_CBC, appConfig['IV456'])
+    ciphertext = obj.encrypt(kwargs.get('key'))
+    # to decode
+    #obj = AES.new(appConfig['cryptoKey'], AES.MODE_CBC, appConfig['IV456'])
+    #obj.decrypt(ciphertext)
+    users_db.set_key(message.author.id, ciphertext)
     await client.send_message(message.author, 'Thanks, your key has been set!')
 
 
@@ -160,6 +166,9 @@ async def checkin(client, message):
 @required_args('username')
 @commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Any)
 async def username(client, message, **kwargs):
+    """Sets your callonge username
+    Argument:
+    username -- If you don't have one, you can sign up here for free https://challonge.com/users/new"""
     users_db.set_username(message.author.id, kwargs.get('username'))
     await client.send_message(message.author, 'Your username \'{}\' has been set!'.format(kwargs.get('username')))
 
@@ -167,6 +176,10 @@ async def username(client, message, **kwargs):
 @optional_args('command')
 @commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Any)
 async def help(client, message, **kwargs):
+    """Gets help on usable commands
+    If no argument is provided, a concise list of usable commands will be displayed
+    Optional Argument:
+    command -- the command you want more info on"""
     commandName = kwargs.get('command')
     if commandName != None:
         command = commands.find(commandName)

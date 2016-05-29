@@ -1,20 +1,16 @@
+from config import appConfig
 import discord
 import asyncio
-import json
 from c_users import users_db
 from c_servers import servers_db
 from const import *
 import commands_def
 from commands_core import commands
 
+
 print('app_start')
 
 client = discord.Client()
-
-
-
-with open('config/config.json') as data_file:
-    config = json.load(data_file)
 
 
 async def greet_new_server(server):
@@ -117,6 +113,6 @@ async def on_message(message):
     #    await cmd.execute(client, message)
 
 
-client.run(config['Discord']['token'])
+client.run(appConfig['Discord']['token'])
 
 print('app_stop')

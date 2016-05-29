@@ -6,16 +6,16 @@ C_RoleName = 'Challonge'
 T_JoinServer_Header = 'Thanks for installing the Challonge Bot on server \'*{0}*\'\n'
 T_JoinServer_NeedKey = cleandoc("""Your challonge username is already registered (\'{}\'), but your API key is needed as well
     Please use this command in private message:
-    key [your_key] | ex: key 1234567890abcdefg"""
+    key [your_key] | ex: key 1234567890abcdefg""")
                                 
 T_JoinServer_NeedName = cleandoc("""Your API key is already registered, but not your challonge username
     Please use this command in private message:
-    username: [your_username] | ex: username fp12"""
+    username: [your_username] | ex: username fp12""")
                                  
 T_JoinServer_NeedAll = cleandoc("""Your challonge username and API key are needed for this bot to work with challonge
     Please use these commands in private message:
     username [your_username] | ex: username fp12
-    key [your_key] | ex: key 1234567890abcdefg"""
+    key [your_key] | ex: key 1234567890abcdefg""")
                                 
 T_JoinServer_NeedNothing = 'I already have all the info I need. You can start using this bot in the new server right now! Enjoy!'
 T_JoinServer_SetupDone = 'Bot setup has been completed: the channel {} has been created on the server'.format(C_ManagementChannelName)
@@ -30,7 +30,7 @@ T_ValidateCommandContext_BadChannel = 'Wrong channel for command **{}**'
 T_ValidateCommandContext_BadPrivileges = 'Not enough privileges for command **{}**'
 
 T_LeaveServer_Instructions = cleandoc("""Thanks you for using the Challonge bot! The management channel and the Challonge role have been removed from server {0}
-    Feel free to send feedback here with command *feedback*"""
+    Feel free to send feedback here with command *feedback*""")
 
 T_TournamentCreated = cleandoc("""Tournament **{0}** has been successfully created on challonge!
     Visit {1} to setup missing information such as game, description...
