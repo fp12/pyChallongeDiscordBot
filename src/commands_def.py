@@ -16,13 +16,13 @@ async def shutdown(client, message):
 
 @required_args('key')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Private)
-async def key(client, message, **kwArgs):
+async def key(client, message, **kwargs):
     """Store your Challonge API key
     Look for it here: https://challonge.com/settings/developer
     Argument:
     key -- the Challonge API key
     """
-    users_db.set_key(message.author.id, kwArgs.get('key'))
+    users_db.set_key(message.author.id, kwargs.get('key'))
     await client.send_message(message.author, 'Thanks, your key has been set!')
 
 
@@ -82,14 +82,20 @@ async def leaveserver(client, message):
 @aliases('new')
 @required_args('name', 'urlname', 'type')
 @commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.NewTourney)
-async def create(client, message, **kwArgs):
+async def create(client, message, **kwargs):
     """Creates a new tournament
     Arguments:
     name -- will be used as the tournament name
     urlname -- name used for the url http://challonge.com/urlname
     type -- can be [singleelim, doubleelim]
     """
-    await client.send_message(message.channel, 'create')
+    role = await client.create_role(message.channel.server, **{'name':'Participant_' + kwargs.get('name'), 'mentionable':True})
+    chChannel = await client.create_channel(message.channel.server, 'T_' + kwargs.get('name'))
+    servers_db.add_tournament(message.channel.server, **{'channel':chChannel.id, 'role':role.id, 'challongeid':0})
+    await client.send_message(message.channel, T_TournamentCreated.format(kwargs.get('name'),
+                                                                          'http://challonge.com/' + kwargs.get('urlname'),
+                                                                          role.mention,
+                                                                          chChannel.mention))
 
 
 @aliases('shuffle')

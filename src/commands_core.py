@@ -84,8 +84,8 @@ class Command:
             await self.cb(client, message)
 
     def pretty_print(self):
-        return self.simple_print() + '\n```{3}{4}```'.format('' if self.cb.__doc__ == None else self.cb.__doc__,
-                                                           'No aliases' if len(self.aliases) == 0 else 'Aliases: ' + ' / '.join(self.aliases))
+        return self.simple_print() + '\n```{0}{1}```'.format('' if self.cb.__doc__ == None else self.cb.__doc__,
+                                                             'No aliases' if len(self.aliases) == 0 else 'Aliases: ' + ' / '.join(self.aliases))
 
     def simple_print(self):
         return '**{0}** {1}{2}'.format( self.name,
