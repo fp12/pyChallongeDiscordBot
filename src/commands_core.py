@@ -4,6 +4,7 @@ from c_servers import ChannelType, get_channel_type
 import discord
 from const import *
 import utils
+from profiling import Profiler, Scope
 
 commandTrigger = '>>>'
 commandFormat = '| {0:15}| {1:16}| {2:13}| {3:15}| {4:20}| {5:20}|'
@@ -114,12 +115,13 @@ class CommandsHandler:
             return self.find(split[1])
         return None
 
-    def register(self, **kwargs):
+    def register(self, **attributes):
         def decorator(func):
-            async def wrapper(client, message, **kwArgs):
-                await func(client, message, **kwArgs)
+            async def wrapper(client, message, **postCommand):
+                with Profiler(Scope.Command, **{'name':func.__name__, 'args':' '.join(postCommand.values()), 'server':message.channel.server.id}) as p:
+                    await func(client, message, **postCommand)
             wrapper.__doc__ = func.__doc__
-            return self._add(Command(func.__name__, wrapper, Attributes(**kwargs)))
+            return self._add(Command(func.__name__, wrapper, Attributes(**attributes)))
         return decorator
 
     async def try_execute(self, client, message):
