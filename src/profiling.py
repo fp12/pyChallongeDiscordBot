@@ -31,14 +31,16 @@ class ProfilerCollector():
             return self.commandFormat.format(x['start'], x['name'], x['args'], x['time'], x['server'])
 
     def dump(self):
+        return '\n'.join([
         utils.print_array('Profiling Core stats',
                           self.coreFormatHeader.format('Start', 'Name', 'Time'),
                           self._stats,
-                          self._print_core)
+                          self._print_core),
         utils.print_array('Profiling Command stats',
                           self.commandFormatHeader.format('Start', 'Name', 'Args', 'Time', 'Server'),
                           self._stats,
-                          self._print_command)
+                          self._print_command)])
+
 
 collector = ProfilerCollector()
 

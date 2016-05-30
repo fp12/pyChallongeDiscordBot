@@ -6,13 +6,36 @@ from const import *
 from commands_core import commands, required_args, optional_args, aliases, ContextValidationError_InsufficientPrivileges
 from permissions import Permissions
 from encoding import encoder
-
+from profiling import collector
+from utils import *
 
 @aliases('exit', 'out')
 @commands.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
 async def shutdown(client, message):
     await client.send_message(message.channel, 'logging out...')
     await client.logout()
+
+
+@optional_args('what')
+@aliases('print')
+@commands.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
+async def dump(client, message, **kwargs):
+    def decorate(s):
+        return '```' + s + '```'
+
+    what = kwargs.get('what')
+    if what == None or what == 'commands':
+        for page in paginate(commands.dump(), 1700):
+            await client.send_message(message.author, decorate(page))
+    if what == None or what == 'profile':
+        for page in paginate(collector.dump(), 1700):
+            await client.send_message(message.author, decorate(page))
+    if what == None or what == 'servers':
+        for page in paginate(servers_db.dump(), 1700):
+            await client.send_message(message.author, decorate(page))
+    if what == None or what == 'users':
+        for page in paginate(users_db.dump(), 1700):
+            await client.send_message(message.author, decorate(page))
 
 
 @required_args('key')
@@ -211,7 +234,6 @@ async def join(client, message):
 @commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Private)
 async def feedback(client, message, **kwArgs):
     await client.send_message(message.channel, 'feedback')
-
 
 
 #commands.dump()

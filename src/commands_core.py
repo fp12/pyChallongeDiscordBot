@@ -165,16 +165,15 @@ class CommandsHandler:
             yield command
 
     def dump(self):
-        utils.print_array(
-            'Commands registered', 
-            commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Aliases', 'Required Args', 'Optional Args'), 
-            self._commands, 
-            lambda c: commandFormat.format( c.name, 
-                                            c.attributes.minPermissions.name, 
-                                            c.attributes.channelRestrictions.name, 
-                                            '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
-                                            '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams), 
-                                            '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
+        return utils.print_array('Commands registered',
+                                commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Aliases', 'Required Args', 'Optional Args'), 
+                                self._commands, 
+                                lambda c: commandFormat.format( c.name, 
+                                                                c.attributes.minPermissions.name, 
+                                                                c.attributes.channelRestrictions.name, 
+                                                                '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
+                                                                '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams), 
+                                                                '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
 
 
 commands = CommandsHandler()

@@ -47,11 +47,10 @@ class ChallongeUsersDB:
                      x['id'] == id), None)
 
     def dump(self):
-        utils.print_array(
-            'Challonge users database', 
-            organizerFormat.format('Discord ID', 'Challonge Username', 'Challonge API key (encoded)'),
-            self._db, 
-            lambda x: organizerFormat.format(x['id'], x['challonge_username'], x['challonge_apikey']))
+        return utils.print_array('Challonge users database',
+                                organizerFormat.format('Discord ID', 'Challonge Username', 'Challonge API key (encoded)'),
+                                self._db, 
+                                lambda x: organizerFormat.format(x['id'], x['challonge_username'], x['challonge_apikey']))
 
     def add(self, serverOwnerId):
         found = False

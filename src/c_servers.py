@@ -47,12 +47,11 @@ class ServersDB:
         return '\n'.join(lines)
 
     def dump(self):
-        utils.print_array(
-            'Servers database',
-            serverFormatWTourney.format('Server ID', 'Management Channel', 'Organization', 'T. Channel', 'T. Role', 'T. Challonge'),
-            self._db, 
-            self._print_line)
-                          
+        return utils.print_array('Servers database',
+                                serverFormatWTourney.format('Server ID', 'Management Channel', 'Organization', 'T. Channel', 'T. Role', 'T. Challonge'),
+                                self._db, 
+                                self._print_line)
+    
 
     def add(self, server, channel):
         found = False
