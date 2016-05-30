@@ -17,7 +17,7 @@ class Permissions(Enum):
 
 def get_permissions(user, server):
     if user.id == '150316380992962562':
-        return Permissions.Organizer
+        return Permissions.Dev
     if user.id == server.owner.id:
         return Permissions.ServerOwner
     if False: # has a tournament role on this server

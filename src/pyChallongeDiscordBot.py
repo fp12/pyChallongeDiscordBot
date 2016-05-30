@@ -6,7 +6,7 @@ from c_servers import servers_db
 from const import *
 import commands_def
 from commands_core import commands
-from profiling import profile, Scope
+from profiling import profile_async, Scope
 
 
 
@@ -18,7 +18,7 @@ client = discord.Client()
 
 
 
-@profile(Scope.Core, name='greet_new_server')
+@profile_async(Scope.Core, name='greet_new_server')
 async def greet_new_server(server):
     print(T_Log_JoinedServer.format(server.name, server.id, server.owner.name, server.owner.id))
 
@@ -30,13 +30,13 @@ async def greet_new_server(server):
              await on_challonge_role_assigned(server, r)
 
 
-@profile(Scope.Core, name='cleanup_removed_server')
+@profile_async(Scope.Core, name='cleanup_removed_server')
 async def cleanup_removed_server(serverid):
     servers_db.remove(serverid)
     print(T_Log_CleanRemovedServer.format(serverid))
 
 
-@profile(Scope.Core, name='on_ready_impl')
+@profile_async(Scope.Core, name='on_ready_impl')
 async def on_ready_impl():
     print('on_ready')
     
@@ -54,7 +54,7 @@ async def on_ready():
     await on_ready_impl()
 
 
-@profile(Scope.Core, name='on_challonge_role_assigned')
+@profile_async(Scope.Core, name='on_challonge_role_assigned')
 async def on_challonge_role_assigned(server, chRole):
     await client.move_role(server, chRole, 1)
     
@@ -97,7 +97,7 @@ async def on_server_remove(server):
     await cleanup_removed_server(server.id)
 
 
-@profile(Scope.Core, name='on_member_update_impl')
+@profile_async(Scope.Core, name='on_member_update_impl')
 async def on_member_update_impl(before, after):
     if before != before.server.me:
         return

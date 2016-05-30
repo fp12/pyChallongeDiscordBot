@@ -5,8 +5,8 @@ from c_servers import servers_db, ChannelType
 from const import *
 from commands_core import commands, required_args, optional_args, aliases, ContextValidationError_InsufficientPrivileges
 from permissions import Permissions
-from Crypto.Cipher import AES
-from config import appConfig
+from encoding import encoder
+
 
 @aliases('exit', 'out')
 @commands.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
@@ -23,13 +23,11 @@ async def key(client, message, **kwargs):
     Argument:
     key -- the Challonge API key
     """
-    obj = AES.new(appConfig['cryptoKey'], AES.MODE_CBC, appConfig['IV456'])
-    ciphertext = obj.encrypt(kwargs.get('key'))
-    # to decode
-    #obj = AES.new(appConfig['cryptoKey'], AES.MODE_CBC, appConfig['IV456'])
-    #obj.decrypt(ciphertext)
-    users_db.set_key(message.author.id, ciphertext)
-    await client.send_message(message.author, 'Thanks, your key has been set!')
+    if len(kwargs.get('key')) % 8 != 0:
+        await client.send_message(message.author, 'Error: please check again your key')
+    else:
+        users_db.set_key(message.author.id, encoder.encrypt(kwargs.get('key')))
+        await client.send_message(message.author, 'Thanks, your key has been encrypted and stored on our server!')
 
 
 @optional_args('organization')
@@ -61,7 +59,7 @@ async def promote(client, message, **kwargs):
         for r in message.channel.server.me.roles:
             if r.name == C_RoleName:
                 try:
-                    await client.add_roles(member, *[r])
+                    await client.add_roles(member, r)
                     await client.send_message(message.channel, 'Member **{0.name}** has been promoted'.format(member))
                 except discord.errors.Forbidden:
                     await client.send_message(message.channel, 'Could not promote Member **{0.name}** because of insufficient permissions.\n{1} could you add Role \'Challonge\' to this member? Thanks!'.format(member, message.channel.server.owner.mention))
@@ -95,9 +93,9 @@ async def create(client, message, **kwargs):
     urlname -- name used for the url http://challonge.com/urlname
     type -- can be [singleelim, doubleelim]
     """
-    role = await client.create_role(message.channel.server, **{'name':'Participant_' + kwargs.get('name'), 'mentionable':True})
+    role = await client.create_role(message.channel.server, name='Participant_'+kwargs.get('name'), mentionable=True)
     chChannel = await client.create_channel(message.channel.server, 'T_' + kwargs.get('name'))
-    servers_db.add_tournament(message.channel.server, **{'channel':chChannel.id, 'role':role.id, 'challongeid':0})
+    servers_db.add_tournament(message.channel.server, channel=chChannel.id, role=role.id, challongeid=0)
     await client.send_message(message.channel, T_TournamentCreated.format(kwargs.get('name'),
                                                                           'http://challonge.com/' + kwargs.get('urlname'),
                                                                           role.mention,
@@ -168,7 +166,8 @@ async def checkin(client, message):
 async def username(client, message, **kwargs):
     """Sets your callonge username
     Argument:
-    username -- If you don't have one, you can sign up here for free https://challonge.com/users/new"""
+    username -- If you don't have one, you can sign up here for free https://challonge.com/users/new
+    """
     users_db.set_username(message.author.id, kwargs.get('username'))
     await client.send_message(message.author, 'Your username \'{}\' has been set!'.format(kwargs.get('username')))
 
@@ -179,7 +178,8 @@ async def help(client, message, **kwargs):
     """Gets help on usable commands
     If no argument is provided, a concise list of usable commands will be displayed
     Optional Argument:
-    command -- the command you want more info on"""
+    command -- the command you want more info on
+    """
     commandName = kwargs.get('command')
     if commandName != None:
         command = commands.find(commandName)
@@ -199,7 +199,7 @@ async def help(client, message, **kwargs):
         commandsStr = []
         for c in commands.get_authorized_commands(client, message):
             commandsStr.append(c.simple_print())
-        await client.send_message(message.channel, '```Usable commands for you in this channel:```\n' + '\n'.join(commandsStr) + '')
+        await client.send_message(message.channel, '`Usable commands for you in this channel:`\n' + '\n'.join(commandsStr) + '')
 
 
 @commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Tournament)

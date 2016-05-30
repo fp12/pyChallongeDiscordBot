@@ -118,7 +118,7 @@ class CommandsHandler:
     def register(self, **attributes):
         def decorator(func):
             async def wrapper(client, message, **postCommand):
-                with Profiler(Scope.Command, **{'name':func.__name__, 'args':' '.join(postCommand.values()), 'server':message.channel.server.id}) as p:
+                with Profiler(Scope.Command, name=func.__name__, args=' '.join(postCommand.values()), server=0 if message.channel.is_private else message.channel.server.id) as p:
                     await func(client, message, **postCommand)
             wrapper.__doc__ = func.__doc__
             return self._add(Command(func.__name__, wrapper, Attributes(**attributes)))

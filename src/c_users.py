@@ -2,7 +2,7 @@ import json
 import utils
 
 userFormat = '| {0:19}| {1:19}|'
-organizerFormat = '| {0:19}| {1:19}| {2:30}|'
+organizerFormat = '| {0:19}| {1:19}| {2:65}|'
 
 
 class ChallongeUser:
@@ -49,7 +49,7 @@ class ChallongeUsersDB:
     def dump(self):
         utils.print_array(
             'Challonge users database', 
-            organizerFormat.format('Discord ID', 'Challonge Username', 'Challonge API key'), 
+            organizerFormat.format('Discord ID', 'Challonge Username', 'Challonge API key (encoded)'),
             self._db, 
             lambda x: organizerFormat.format(x['id'], x['challonge_username'], x['challonge_apikey']))
 
@@ -70,7 +70,7 @@ class ChallongeUsersDB:
                 x['challonge_username'] = username
                 found = True
         if found == False:
-            self._db.append(id=id, challonge_username=username)
+            self._db.append({'id':id, 'challonge_username':username, 'challonge_apikey':''})
         self._save()
 
     def set_key(self, id, key):
@@ -80,7 +80,7 @@ class ChallongeUsersDB:
                 x['challonge_apikey'] = key
                 found = True
         if found == False:
-            self._db.append(id=id, challonge_apikey=keychallonge_apikey)
+            self._db.append({'id':id, 'challonge_username':'', 'challonge_apikey':key})
         self._save()
 
 
