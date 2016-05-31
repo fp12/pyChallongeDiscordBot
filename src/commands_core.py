@@ -17,10 +17,12 @@ class ContextValidationError_MissingParameters(Exception):
         self.given = given
 
 class ContextValidationError_WrongChannel(Exception):
-    pass
+    def __str__(self):
+        return T_ValidateCommandContext_BadChannel
 
 class ContextValidationError_InsufficientPrivileges(Exception):
-    pass
+    def __str__(self):
+        return T_ValidateCommandContext_BadPrivileges
 
 
 class Attributes:
@@ -142,7 +144,10 @@ class CommandsHandler:
     def register(self, **attributes):
         def decorator(func):
             async def wrapper(client, message, **postCommand):
-                with Profiler(Scope.Command, name=func.__name__, args=message, server=0 if message.channel.is_private else message.channel.server.id) as p:
+                # choose only those that are most likely arguments (could be Account...)
+                args = ' '.join([v for v in postCommand.values() if isinstance(v, str)])
+                server = 0 if message.channel.is_private else message.channel.server.id
+                with Profiler(Scope.Command, name=func.__name__, args=args, server=server) as p:
                     await func(client, message, **postCommand)
             wrapper.__doc__ = func.__doc__
             return self._add(Command(func.__name__, wrapper, Attributes(**attributes)))
@@ -166,11 +171,11 @@ class CommandsHandler:
                 command.validate_context(client, message, postCommand)
             except ContextValidationError_MissingParameters as e:
                 await client.send_message(message.channel, T_ValidateCommandContext_BadParameters.format(command.name, e.req, e.given))
-            except ContextValidationError_WrongChannel:
-                await client.send_message(message.channel, T_ValidateCommandContext_BadChannel.format(command.name))
-            except ContextValidationError_InsufficientPrivileges:
-                await client.send_message(message.channel, T_ValidateCommandContext_BadPrivileges.format(command.name))
-            except (UserNotFound, UserNameNotSet, APIKeyNotSet) as e:
+            except (ContextValidationError_WrongChannel,
+                    ContextValidationError_InsufficientPrivileges,
+                    UserNotFound,
+                    UserNameNotSet,
+                    APIKeyNotSet) as e:
                 await client.send_message(message.channel, e)
             else:
                 print(T_Log_ValidatedCommand.format(command.name,

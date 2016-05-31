@@ -223,7 +223,7 @@ async def update(client, message, **kwargs):
 
 
 @commands.register(minPermissions=Permissions.Participant,
-                   channelRestrictions=ChannelType.Tournament
+                   channelRestrictions=ChannelType.Tournament,
                    challongeAccess=ChallongeAccess.Required)
 async def forfeit(client, message, **kwargs):
     await client.send_message(message.channel, 'forfeit')
