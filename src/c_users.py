@@ -31,26 +31,26 @@ organizerFormat = '| {0:19}| {1:19}| {2:15}| {3:15}|'
 
 class ChallongeUser:
     def __init__(self, discordId, challongeUserName):
-        self.DiscordId = discordId
-        self.ChallongeUserName = challongeUserName
+        self.discordId = discordId
+        self.challongeUserName = challongeUserName
 
     def has_username(self):
-        return self.ChallongeUserName != ''
+        return self.challongeUserName != ''
 
     def __repr__(self):
-        return userFormat.format(self.DiscordId, self.ChallongeUserName)
+        return userFormat.format(self.discordId, self.challongeUserName)
 
 
 class ChallongeOrganizer(ChallongeUser):
     def __init__(self, discordId, challongeUserName, challongeAPIKey):
         ChallongeUser.__init__(self, discordId, challongeUserName)
-        self.ChallongeAPIKey = challongeAPIKey
+        self.challongeAPIKey = challongeAPIKey
 
     def has_key(self):
-        return self.ChallongeAPIKey != ''
+        return self.challongeAPIKey != ''
 
     def __repr__(self):
-        return organizerFormat.format(self.DiscordId, self.ChallongeUserName, self.ChallongeAPIKey)
+        return organizerFormat.format(self.discordId, self.challongeUserName, self.challongeAPIKey)
 
 
 class ChallongeUsersDB:

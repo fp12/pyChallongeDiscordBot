@@ -32,14 +32,14 @@ async def greet_new_server(server):
 
 @profile_async(Scope.Core, name='cleanup_removed_server')
 async def cleanup_removed_server(serverid):
-    servers_db.remove(serverid)
+    servers_db.remove_server(serverid)
     print(T_Log_CleanRemovedServer.format(serverid))
 
 
 @profile_async(Scope.Core, name='on_ready_impl')
 async def on_ready_impl():
     print('on_ready')
-    
+
     for s in [s for s in client.servers if s.id not in servers_db]:
         print('on_ready greeting new server ' + s.name)
         await greet_new_server(s)
@@ -47,6 +47,8 @@ async def on_ready_impl():
     for sid in [s['id'] for s in servers_db if client.get_server(s['id']) not in client.servers]:
         print('on_ready cleaning removed server ' + sid)
         await cleanup_removed_server(sid)
+
+    # Should we do a sanity check?
 
 
 @client.event
@@ -60,8 +62,8 @@ async def on_challonge_role_assigned(server, chRole):
     
     # now create a channel
     chChannel = await client.create_channel(server, C_ManagementChannelName)
-        
-    servers_db.add(server, chChannel)
+
+    servers_db.add_server(server, chChannel)
     
     await client.edit_channel_permissions(chChannel, chRole)
     

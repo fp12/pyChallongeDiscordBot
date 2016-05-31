@@ -8,7 +8,7 @@ import utils
 from profiling import Profiler, Scope
 
 commandTrigger = '>>>'
-commandFormat = '| {0:15}| {1:16}| {2:13}| {3:20}| {4:20}| {5:20}|'
+commandFormat = '| {0:17}| {1:16}| {2:13}| {3:11}| {4:20}| {5:20}| {6:20}|'
 
 
 class ContextValidationError_MissingParameters(Exception):
@@ -88,6 +88,22 @@ class Command:
             return name in self.aliases
         return False
     
+    def _fetch_helpers(self, message):
+        kwargs = {}
+        for x in self.helpers:
+            if x == 'account':
+                kwargs[x] = users_db.get_account(message.server)
+            elif x == 'tournament_id':
+                kwargs[x] = servers_db.get_tournament_id(message.channel)
+            elif x == 'tournament_role':
+                roleid = servers_db.get_tournament_role(message.channel)
+                kwargs[x] = find(lambda r: r.id == roleid, message.channel.server.roles)
+            elif x == 'participant_username':
+                participant = users_db.get_user(message.author.id)
+                if participant != None:
+                    kwargs[x] = participant.challongeUserName
+
+        return kwargs
 
     async def execute(self, client, message, postCommand):
         kwargs = {}
@@ -100,11 +116,7 @@ class Command:
             if count + offset < len(postCommand):
                 kwargs[x] = postCommand[count + offset]
 
-        for x in self.helpers:
-            if x == 'account':
-                kwargs[x] = users_db.get_account(message.server)
-            if x == 'tournament_id':
-                kwargs[x] = servers_db.get_tournament_id(message.channel)
+        kwargs.update(self._fetch_helpers(message))
 
         await self.cb(client, message, **kwargs)
 
@@ -115,9 +127,10 @@ class Command:
     
 
     def simple_print(self):
-        return '**{0}** {1}{2}'.format( self.name,
+        return '`{0}` {1}{2} -- *{3}*'.format( self.name,
                                         ' ' if len(self.reqParams) == 0 else ' '.join(['['+p+']' for p in self.reqParams]),
-                                        ' ' if len(self.optParams) == 0 else ' '.join(['{'+p+'}' for p in self.optParams]))
+                                        ' ' if len(self.optParams) == 0 else ' '.join(['{'+p+'}' for p in self.optParams]), 
+                                        'No description available' if self.cb.__doc__ == None else self.cb.__doc__.splitlines()[0])
 
 
 
@@ -146,6 +159,7 @@ class CommandsHandler:
             async def wrapper(client, message, **postCommand):
                 # choose only those that are most likely arguments (could be Account...)
                 args = ' '.join([v for v in postCommand.values() if isinstance(v, str)])
+                # server for profiling info
                 server = 0 if message.channel.is_private else message.channel.server.id
                 with Profiler(Scope.Command, name=func.__name__, args=args, server=server) as p:
                     await func(client, message, **postCommand)
@@ -177,20 +191,18 @@ class CommandsHandler:
                     UserNameNotSet,
                     APIKeyNotSet) as e:
                 await client.send_message(message.channel, e)
-            else:
+            else:                
+                await command.execute(client, message, postCommand)
                 print(T_Log_ValidatedCommand.format(command.name,
                                                     '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand),
                                                     message,
                                                     'PM' if message.channel.is_private else '{0.channel.server.name}/#{0.channel.name}'.format(message)))
-                await command.execute(client, message, postCommand)
 
     def get_authorized_commands(self, client, message):
         for command in self._commands:
             try:
                 command.validate_context(client, message, [])
-            except ContextValidationError_WrongChannel:
-                continue
-            except ContextValidationError_InsufficientPrivileges:
+            except (ContextValidationError_WrongChannel, ContextValidationError_InsufficientPrivileges):
                 continue
             except:
                 pass
@@ -198,11 +210,12 @@ class CommandsHandler:
 
     def dump(self):
         return utils.print_array('Commands registered',
-                                commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Aliases', 'Required Args', 'Optional Args'), 
+                                commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Challonge', 'Aliases', 'Required Args', 'Optional Args'), 
                                 self._commands, 
                                 lambda c: commandFormat.format( c.name, 
                                                                 c.attributes.minPermissions.name, 
-                                                                c.attributes.channelRestrictions.name, 
+                                                                c.attributes.channelRestrictions.name,
+                                                                'True' if c.attributes.challongeAccess == ChallongeAccess.Required else 'False',
                                                                 '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
                                                                 '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams), 
                                                                 '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))

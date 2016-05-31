@@ -4,12 +4,15 @@ from config import appConfig
 from base64 import b64encode, b64decode
 from profiling import profile, Scope
 
+# generate new key:
+# print(b64encode(Random.new().read(DES.block_size)).decode("utf-8"))
 
 class Encoder():
     @profile(Scope.Core, name='Encoder.__init__')
     def __init__(self):
         # we decode the key once per session
         self.decodedKey = b64decode(appConfig['cryptokey'])
+
     
     @profile(Scope.Core, name='Encoder.encrypt')
     def encrypt(self, data):

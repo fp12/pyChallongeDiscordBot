@@ -53,7 +53,7 @@ class ServersDB:
                                 self._print_line)
     
 
-    def add(self, server, channel):
+    def add_server(self, server, channel):
         found = False
         for x in self._db:
             if x['id'] == server.id:
@@ -64,6 +64,13 @@ class ServersDB:
         if found == False:
             newServer = {'id':server.id, 'managementChannel':channel.id, 'organization':'', 'tournaments':[]}
             self._db.append(newServer)
+        self._save()
+
+    def remove_server(self, serverid):
+        for x in self._db:
+            if x['id'] == serverid:
+                self._db.remove(x)
+                break
         self._save()
 
     def edit(self, server, **kwargs):
@@ -82,13 +89,14 @@ class ServersDB:
                 return
         print('Attempted to add a tournament on server \'{0.name}\' ({0.id}) but it was not found in db'.format(server))
 
-
-    def remove(self, serverid):
+    def remove_tournament(self, server, tournament):
         for x in self._db:
-            if x['id'] == serverid:
-                self._db.remove(x)
-                break
-        self._save()
+            if x['id'] == server.id:
+                for y in x['tournaments']:
+                    if y['challongeid'] == tournament:
+                        x['tournaments'].remove(y)
+                        self._save()
+                        return
 
     def get_management_channel(self, server):
         for x in self._db:
@@ -96,14 +104,20 @@ class ServersDB:
                 return x['managementChannel']
         return 0
 
-    def get_tournament_id(self, channel):
-        result = [y['challongeid'] for x in self._db if x['id'] == channel.server.id for y in x['tournaments'] if y['channel'] == channel.id]
+    def _get_tournament_info(self, channel, info):
+        result = [y[info] for x in self._db if x['id'] == channel.server.id for y in x['tournaments'] if y['channel'] == channel.id]
         if len(result) == 0:
             print('No results for get_tournament_id')
         elif len(result) > 1:
             print('Too many results for get_tournament_id')
         else:
             return result[0]
+
+    def get_tournament_id(self, channel):
+        return self._get_tournament_info(channel, 'challongeid')
+
+    def get_tournament_role(self, channel):
+        return self._get_tournament_info(channel, 'role')
 
 
 servers_db = ServersDB()
