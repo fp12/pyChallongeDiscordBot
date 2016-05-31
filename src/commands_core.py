@@ -1,13 +1,14 @@
 import asyncio
 from permissions import Permissions, get_permissions
-from c_servers import ChannelType, get_channel_type
+from c_servers import servers_db, ChannelType, get_channel_type
+from c_users import users_db, ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet
 import discord
 from const import *
 import utils
 from profiling import Profiler, Scope
 
 commandTrigger = '>>>'
-commandFormat = '| {0:15}| {1:16}| {2:13}| {3:15}| {4:20}| {5:20}|'
+commandFormat = '| {0:15}| {1:16}| {2:13}| {3:20}| {4:20}| {5:20}|'
 
 
 class ContextValidationError_MissingParameters(Exception):
@@ -21,10 +22,12 @@ class ContextValidationError_WrongChannel(Exception):
 class ContextValidationError_InsufficientPrivileges(Exception):
     pass
 
+
 class Attributes:
     def __init__(self, **kwargs):
         self.minPermissions = kwargs.get('minPermissions', Permissions.User)
         self.channelRestrictions = kwargs.get('channelRestrictions', ChannelType.Other)
+        self.challongeAccess = kwargs.get('challongeAccess', ChallongeAccess.NotRequired)
 
 
 class Command:
@@ -35,18 +38,28 @@ class Command:
         self.aliases = []
         self.reqParams = []
         self.optParams = []
+        self.helpers = []
+    
 
     def add_required_params(self, *args):
         self.reqParams = args
         return self
+    
 
     def add_optional_params(self, *args):
         self.optParams = args
         return self
+    
 
     def add_aliases(self, *args):
         self.aliases = args
         return self
+    
+    
+    def add_helpers(self, *args):
+        self.helpers = args
+        return self
+    
 
     def validate_context(self, client, message, postCommand):
         authorPerms = get_permissions(message.author, message.server)
@@ -56,7 +69,8 @@ class Command:
                 reqParamsExpected = 0 if self.reqParams == None else len(self.reqParams)
                 givenParams = len(postCommand)
                 if givenParams >= reqParamsExpected:
-                    return True
+                    if self.attributes.challongeAccess == ChallongeAccess.Required:
+                        acc = users_db.get_account(message.server) # can raise
                 else:
                     raise ContextValidationError_MissingParameters(reqParamsExpected, givenParams)                    
             else:
@@ -64,29 +78,39 @@ class Command:
         else:
             raise ContextValidationError_InsufficientPrivileges
 
+
     def validate_name(self, name):
         if self.name == name:
             return True
         elif self.aliases != None:
             return name in self.aliases
         return False
+    
 
     async def execute(self, client, message, postCommand):
-        if len(self.reqParams) + len(self.optParams) > 0:
-            kwargs = {}
-            for count, x in enumerate(self.reqParams):
-                kwargs[x] = postCommand[count]
-            offset = len(self.reqParams)
-            for count, x in enumerate(self.optParams):
-                if count + offset < len(postCommand):
-                    kwargs[x] = postCommand[count + offset]
-            await self.cb(client, message, **kwargs)
-        else:
-            await self.cb(client, message)
+        kwargs = {}
+        
+        for count, x in enumerate(self.reqParams):
+            kwargs[x] = postCommand[count]
+        offset = len(self.reqParams)
+
+        for count, x in enumerate(self.optParams):
+            if count + offset < len(postCommand):
+                kwargs[x] = postCommand[count + offset]
+
+        for x in self.helpers:
+            if x == 'account':
+                kwargs[x] = users_db.get_account(message.server)
+            if x == 'tournament_id':
+                kwargs[x] = servers_db.get_tournament_id(message.channel)
+
+        await self.cb(client, message, **kwargs)
+
 
     def pretty_print(self):
         return self.simple_print() + '\n```{0}{1}```'.format('' if self.cb.__doc__ == None else self.cb.__doc__,
                                                              'No aliases' if len(self.aliases) == 0 else 'Aliases: ' + ' / '.join(self.aliases))
+    
 
     def simple_print(self):
         return '**{0}** {1}{2}'.format( self.name,
@@ -118,7 +142,7 @@ class CommandsHandler:
     def register(self, **attributes):
         def decorator(func):
             async def wrapper(client, message, **postCommand):
-                with Profiler(Scope.Command, name=func.__name__, args=' '.join(postCommand.values()), server=0 if message.channel.is_private else message.channel.server.id) as p:
+                with Profiler(Scope.Command, name=func.__name__, args=message, server=0 if message.channel.is_private else message.channel.server.id) as p:
                     await func(client, message, **postCommand)
             wrapper.__doc__ = func.__doc__
             return self._add(Command(func.__name__, wrapper, Attributes(**attributes)))
@@ -140,17 +164,20 @@ class CommandsHandler:
             postCommand = split[offset:len(split)]
             try:
                 command.validate_context(client, message, postCommand)
-                print(T_Log_ValidatedCommand.format(command.name, 
-                    '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand),
-                    message,
-                    'PM' if message.channel.is_private else '#{0.channel.name}/{0.channel.server.name}'.format(message)))
-                await command.execute(client, message, postCommand)
             except ContextValidationError_MissingParameters as e:
                 await client.send_message(message.channel, T_ValidateCommandContext_BadParameters.format(command.name, e.req, e.given))
             except ContextValidationError_WrongChannel:
                 await client.send_message(message.channel, T_ValidateCommandContext_BadChannel.format(command.name))
             except ContextValidationError_InsufficientPrivileges:
                 await client.send_message(message.channel, T_ValidateCommandContext_BadPrivileges.format(command.name))
+            except (UserNotFound, UserNameNotSet, APIKeyNotSet) as e:
+                await client.send_message(message.channel, e)
+            else:
+                print(T_Log_ValidatedCommand.format(command.name,
+                                                    '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand),
+                                                    message,
+                                                    'PM' if message.channel.is_private else '{0.channel.server.name}/#{0.channel.name}'.format(message)))
+                await command.execute(client, message, postCommand)
 
     def get_authorized_commands(self, client, message):
         for command in self._commands:
@@ -194,4 +221,9 @@ def optional_args(*args):
 def aliases(*args):
     def decorator(func):
         return func.add_aliases(*args)
+    return decorator
+
+def helpers(*args):
+    def decorator(func):
+        return func.add_helpers(*args)
     return decorator

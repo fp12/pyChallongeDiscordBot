@@ -2,6 +2,8 @@ import json
 import utils
 from challonge import Account, ChallongeException
 from encoding import encoder
+from enum import Enum
+
 
 
 class UserNotFound(Exception):
@@ -16,6 +18,10 @@ class APIKeyNotSet(Exception):
     def __str__(self):
         return 'Your Challonge API key has not been set\nPlease use the command `key [apikey]` to set it'
 
+
+class ChallongeAccess(Enum):
+    NotRequired = 0
+    Required = 1
 
 
 userFormat = '| {0:19}| {1:19}|'
@@ -106,9 +112,9 @@ class ChallongeUsersDB:
             self._db.append({'id':id, 'challonge_username':'', 'account':None, 'challonge_apikey':encoder.encrypt(key)})
         self._save()
 
-    def get_account(self, id):
+    def get_account(self, server):
         for x in self._db:
-            if x['id'] == id:
+            if x['id'] == server.owner.id:
                 if x['account'] == None:
                     if x['challonge_username'] == '':
                         raise UserNameNotSet()

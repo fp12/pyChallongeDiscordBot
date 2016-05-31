@@ -1,18 +1,20 @@
 import discord
 import asyncio
-from c_users import users_db, UserNotFound, UserNameNotSet, APIKeyNotSet
+from c_users import users_db, ChallongeAccess
 from c_servers import servers_db, ChannelType
 from const import *
-from commands_core import commands, required_args, optional_args, aliases, ContextValidationError_InsufficientPrivileges
+from commands_core import commands, required_args, optional_args, aliases, helpers, ContextValidationError_InsufficientPrivileges
 from permissions import Permissions
 from profiling import collector
 from utils import *
 from challonge import Account, ChallongeException
 
 
+### DEV ONLY
+
 @aliases('exit', 'out')
 @commands.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
-async def shutdown(client, message):
+async def shutdown(client, message, **kwargs):
     await client.send_message(message.channel, 'logging out...')
     await client.logout()
 
@@ -38,6 +40,8 @@ async def dump(client, message, **kwargs):
         for page in paginate(users_db.dump(), 1700):
             await client.send_message(message.author, decorate(page))
 
+
+### SERVER OWNER
 
 @required_args('key')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Private)
@@ -95,7 +99,7 @@ async def promote(client, message, **kwargs):
 
 
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
-async def leaveserver(client, message):
+async def leaveserver(client, message, **kwargs):
     """Kicks the Challonge bot out of your server
     Using this command, the bot will also remove the management channel it created
     """
@@ -107,9 +111,14 @@ async def leaveserver(client, message):
     await client.leave_server(message.channel.server)
 
 
+## ORGANIZER
+
+@helpers('account')
 @aliases('new')
 @required_args('name', 'url', 'type')
-@commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.NewTourney)
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.NewTourney,
+                   challongeAccess=ChallongeAccess.Required)
 async def create(client, message, **kwargs):
     """Creates a new tournament
     Arguments:
@@ -118,97 +127,126 @@ async def create(client, message, **kwargs):
     type -- can be [singleelim, doubleelim]
     """
     try:
-        acc = users_db.get_account(message.author.id)
-    except (UserNotFound, UserNameNotSet, APIKeyNotSet) as e:
-        await client.send_message(message.channel, e)
+        t = await kwargs.get('account').tournaments.create(kwargs.get('name'), kwargs.get('url'))
+    except ChallongeException as e:
+        await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        try:
-            t = await acc.tournaments.create(kwargs.get('name'), kwargs.get('url'))
-        except ChallongeException as e:
-            await client.send_message(message.author, T_OnChallongeException.format(e))
-        else:
-            role = await client.create_role(message.channel.server, name='Participant_'+kwargs.get('name'), mentionable=True)
-            chChannel = await client.create_channel(message.channel.server, 'T_' + kwargs.get('name'))
-            servers_db.add_tournament(message.channel.server, channel=chChannel.id, role=role.id, challongeid=t['id'])
-            await client.send_message(message.channel, T_TournamentCreated.format(kwargs.get('name'),
-                                                                                    t['full-challonge-url'],
-                                                                                    role.mention,
-                                                                                    chChannel.mention))
+        role = await client.create_role(message.channel.server, name='Participant_'+kwargs.get('name'), mentionable=True)
+        chChannel = await client.create_channel(message.channel.server, 'T_' + kwargs.get('name'))
+        servers_db.add_tournament(message.channel.server, channel=chChannel.id, role=role.id, challongeid=t['id'])
+        await client.send_message(message.channel, T_TournamentCreated.format(kwargs.get('name'),
+                                                                                t['full-challonge-url'],
+                                                                                role.mention,
+                                                                                chChannel.mention))
 
 
+@helpers('account', 'tournament_id')
 @aliases('shuffle', 'randomize')
-@commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Tournament)
-async def shuffleseeds(client, message):
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def shuffleseeds(client, message, **kwargs):
+    """Shuffle tournament seeds
+    The tournament MUST NOT have been started yet!
+    No Arguments
+    """
     try:
-        acc = users_db.get_account(message.author.id)
-    except (UserNotFound, UserNameNotSet, APIKeyNotSet) as e:
-        await client.send_message(message.channel, e)
+        await kwargs.get('account').participants.randomize(kwargs.get('tournament_id'))
+    except ChallongeException as e:
+        await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        tournament_id = servers_db.get_tournament_id(message.channel)
-        try:
-            await acc.participants.randomize(tournament_id)
-        except ChallongeException as e:
-            await client.send_message(message.author, T_OnChallongeException.format(e))
-        else:
-            await client.send_message(message.channel, 'Seeds for this tournament have been suffled!')
-            # TODO: display list of new players seeds
+        await client.send_message(message.channel, 'Seeds for this tournament have been suffled!')
+        # TODO: display list of new players seeds
 
 
+@helpers('account', 'tournament_id')
 @aliases('launch')
-@commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Tournament)
-async def start(client, message):
-    await client.send_message(message.channel, 'start')
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def start(client, message, **kwargs):
+    """Start a tournament
+    No Arguments
+    """
+    try:
+        await kwargs.get('account').participants.randomize(kwargs.get('tournament_id'))
+    except ChallongeException as e:
+        await client.send_message(message.author, T_OnChallongeException.format(e))
+    else:
+        await client.send_message(message.channel, 'Seeds for this tournament have been suffled!')
 
 
-@commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Tournament)
-async def reset(client, message):
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def reset(client, message, **kwargs):
     await client.send_message(message.channel, 'reset')
 
 
-@commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Tournament)
-async def checkin_start(client, message):
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def checkin_start(client, message, **kwargs):
     await client.send_message(message.channel, 'checkin_start')
 
 
-@commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Tournament)
-async def checkin_stop(client, message):
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def checkin_stop(client, message, **kwargs):
     await client.send_message(message.channel, 'checkin_stop')
 
 
-@commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Tournament)
-async def finalize(client, message):
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def finalize(client, message, **kwargs):
     await client.send_message(message.channel, 'finalize')
 
 
 @required_args('player1', 'player2')
-@commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Tournament)
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
 async def reopen(client, message, **kwargs):
     await client.send_message(message.channel, 'reopen')
 
 
+### PARTICIPANT
+
 @required_args('score')
-@commands.register(minPermissions=Permissions.Participant, channelRestrictions=ChannelType.Tournament)
+@commands.register(minPermissions=Permissions.Participant,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
 async def update(client, message, **kwargs):
     await client.send_message(message.channel, 'update')
 
 
-@commands.register(minPermissions=Permissions.Participant, channelRestrictions=ChannelType.Tournament)
-async def forfeit(client, message):
+@commands.register(minPermissions=Permissions.Participant,
+                   channelRestrictions=ChannelType.Tournament
+                   challongeAccess=ChallongeAccess.Required)
+async def forfeit(client, message, **kwargs):
     await client.send_message(message.channel, 'forfeit')
 
 
-@commands.register(minPermissions=Permissions.Participant, channelRestrictions=ChannelType.Tournament)
-async def next(client, message):
+@commands.register(minPermissions=Permissions.Participant,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def next(client, message, **kwargs):
     await client.send_message(message.channel, 'next')
 
 
-@commands.register(minPermissions=Permissions.Participant, channelRestrictions=ChannelType.Tournament)
-async def checkin(client, message):
+@commands.register(minPermissions=Permissions.Participant,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def checkin(client, message, **kwargs):
     await client.send_message(message.channel, 'checkin')
 
 
+### USER
+
 @required_args('username')
-@commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Any)
+@commands.register(channelRestrictions=ChannelType.Any)
 async def username(client, message, **kwargs):
     """Sets your callonge username
     Argument:
@@ -248,13 +286,14 @@ async def help(client, message, **kwargs):
         await client.send_message(message.channel, '`Usable commands for you in this channel:`\n' + '\n'.join(commandsStr) + '')
 
 
-@commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Tournament)
-async def join(client, message):
+@commands.register(channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def join(client, message, **kwargs):
     await client.send_message(message.channel, 'join')
 
 
 @required_args('feedback')
-@commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Private)
+@commands.register(channelRestrictions=ChannelType.Private)
 async def feedback(client, message, **kwArgs):
     await client.send_message(message.channel, 'feedback')
 
