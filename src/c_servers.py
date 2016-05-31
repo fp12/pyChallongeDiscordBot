@@ -96,6 +96,16 @@ class ServersDB:
                 return x['managementChannel']
         return 0
 
+    def get_tournament_id(self, channel):
+        result = [y['challongeid'] for x in self._db if x['id'] == channel.server.id for y in x['tournaments'] if y['channel'] == channel.id]
+        if len(result) == 0:
+            print('No results for get_tournament_id')
+        elif len(result) > 1:
+            print('Too many results for get_tournament_id')
+        else:
+            return result[0]
+
+
 servers_db = ServersDB()
 
 
@@ -122,6 +132,6 @@ def get_channel_type(channel):
         return ChannelType.Private
     if len([s for s in servers_db if s['id'] == channel.server.id and s['managementChannel'] == channel.id]) == 1:
         return ChannelType.Mods
-    if len([s for s in servers_db if s['id'] == channel.server.id and False]) == 1: # TODO
+    if len([t['challongeid'] for s in servers_db if s['id'] == channel.server.id for t in s['tournaments'] if t['channel'] == channel.id]) == 1:
         return ChannelType.Tournament
     return ChannelType.Other

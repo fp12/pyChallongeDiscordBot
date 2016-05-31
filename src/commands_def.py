@@ -1,13 +1,14 @@
 import discord
 import asyncio
-from c_users import users_db
+from c_users import users_db, UserNotFound, UserNameNotSet, APIKeyNotSet
 from c_servers import servers_db, ChannelType
 from const import *
 from commands_core import commands, required_args, optional_args, aliases, ContextValidationError_InsufficientPrivileges
 from permissions import Permissions
-from encoding import encoder
 from profiling import collector
 from utils import *
+from challonge import Account, ChallongeException
+
 
 @aliases('exit', 'out')
 @commands.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
@@ -49,7 +50,7 @@ async def key(client, message, **kwargs):
     if len(kwargs.get('key')) % 8 != 0:
         await client.send_message(message.author, 'Error: please check again your key')
     else:
-        users_db.set_key(message.author.id, encoder.encrypt(kwargs.get('key')))
+        users_db.set_key(message.author.id, kwargs.get('key'))
         await client.send_message(message.author, 'Thanks, your key has been encrypted and stored on our server!')
 
 
@@ -107,7 +108,7 @@ async def leaveserver(client, message):
 
 
 @aliases('new')
-@required_args('name', 'urlname', 'type')
+@required_args('name', 'url', 'type')
 @commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.NewTourney)
 async def create(client, message, **kwargs):
     """Creates a new tournament
@@ -116,19 +117,41 @@ async def create(client, message, **kwargs):
     urlname -- name used for the url http://challonge.com/urlname
     type -- can be [singleelim, doubleelim]
     """
-    role = await client.create_role(message.channel.server, name='Participant_'+kwargs.get('name'), mentionable=True)
-    chChannel = await client.create_channel(message.channel.server, 'T_' + kwargs.get('name'))
-    servers_db.add_tournament(message.channel.server, channel=chChannel.id, role=role.id, challongeid=0)
-    await client.send_message(message.channel, T_TournamentCreated.format(kwargs.get('name'),
-                                                                          'http://challonge.com/' + kwargs.get('urlname'),
-                                                                          role.mention,
-                                                                          chChannel.mention))
+    try:
+        acc = users_db.get_account(message.author.id)
+    except (UserNotFound, UserNameNotSet, APIKeyNotSet) as e:
+        await client.send_message(message.channel, e)
+    else:
+        try:
+            t = await acc.tournaments.create(kwargs.get('name'), kwargs.get('url'))
+        except ChallongeException as e:
+            await client.send_message(message.author, T_OnChallongeException.format(e))
+        else:
+            role = await client.create_role(message.channel.server, name='Participant_'+kwargs.get('name'), mentionable=True)
+            chChannel = await client.create_channel(message.channel.server, 'T_' + kwargs.get('name'))
+            servers_db.add_tournament(message.channel.server, channel=chChannel.id, role=role.id, challongeid=t['id'])
+            await client.send_message(message.channel, T_TournamentCreated.format(kwargs.get('name'),
+                                                                                    t['full-challonge-url'],
+                                                                                    role.mention,
+                                                                                    chChannel.mention))
 
 
-@aliases('shuffle')
+@aliases('shuffle', 'randomize')
 @commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Tournament)
 async def shuffleseeds(client, message):
-    await client.send_message(message.channel, 'shuffleseeds')
+    try:
+        acc = users_db.get_account(message.author.id)
+    except (UserNotFound, UserNameNotSet, APIKeyNotSet) as e:
+        await client.send_message(message.channel, e)
+    else:
+        tournament_id = servers_db.get_tournament_id(message.channel)
+        try:
+            await acc.participants.randomize(tournament_id)
+        except ChallongeException as e:
+            await client.send_message(message.author, T_OnChallongeException.format(e))
+        else:
+            await client.send_message(message.channel, 'Seeds for this tournament have been suffled!')
+            # TODO: display list of new players seeds
 
 
 @aliases('launch')

@@ -37,3 +37,7 @@ T_TournamentCreated = cleandoc("""Tournament **{0}** has been successfully creat
     The role {2} has been created to be assigned to participants when they join
     The channel {3} has been created to centralize all discussion about this tournament
     Have Fun!""")
+
+T_OnChallongeException = cleandoc("""Something happened during the Challonge request! Sorry, your command will fail...
+    Here is the feedback from Challonge:
+    ```{}```""")
