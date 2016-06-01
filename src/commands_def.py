@@ -175,6 +175,9 @@ async def start(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
+        deny = discord.Permissions.none()
+        deny.send_messages = True
+        await client.edit_channel_permissions(message.channel, message.channel.server.default_role, deny=deny)
         await client.send_message(message.channel, 'Tournament is now started!')
         # TODO real text (witch games to play...)
         # Discord won't display SVGs yet, so have a look at: https://cloudconvert.com/api/svgtopng
@@ -297,12 +300,28 @@ async def update(client, message, **kwargs):
     await client.send_message(message.channel, 'update')
 
 
-@helpers('account', 'tournament_id', 'participant_name')
+@helpers('account', 'tournament_id', 'participant_name', 'tournament_role')
 @commands.register(minPermissions=Permissions.Participant,
                    channelRestrictions=ChannelType.Tournament,
                    challongeAccess=ChallongeAccess.Required)
 async def forfeit(client, message, **kwargs):
-    await client.send_message(message.channel, 'forfeit')
+    """Forfeit for the current tournament
+    If the tournament is pending, you will be removed from the participants list
+    If the tournament is in progress, Challonge will forfeit your potential remaining games 
+    and you won't be able to write in this channel anymore
+    No Arguments
+    """
+    try:
+        participants = await kwargs.get('account').participants.index(kwargs.get('tournament_id'))
+        for x in participants:
+            if x['name'] == message.author.name:
+                await kwargs.get('account').participants.destroy(kwargs.get('tournament_id'), x['id'])
+                break
+    except ChallongeException as e:
+        await client.send_message(message.author, T_OnChallongeException.format(e))
+    else:
+        client.remove_roles(message.author, kwargs.get('tournament_role'))
+        await client.send_message(message.channel, 'You forfeited from this tournament')
 
 
 @helpers('account', 'tournament_id', 'participant_name')
@@ -322,7 +341,7 @@ async def checkin(client, message, **kwargs):
     No Arguments
     """
     try:
-        participants = await kwargs.get('account').participants.show(kwargs.get('tournament_id'))
+        participants = await kwargs.get('account').participants.index(kwargs.get('tournament_id'))
         for x in participants:
             if x['name'] == message.author.name:
                 await kwargs.get('account').participants.check_in(kwargs.get('tournament_id'), x['id'])
@@ -330,10 +349,31 @@ async def checkin(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        await client.send_message(message.channel, 'You have successfully checked in. Please wait for organizers to start the tournament')
+        await client.send_message(message.channel, 'You have successfully checked in. Please wait for the organizers to start the tournament')
+
+
+@helpers('account', 'tournament_id', 'participant_name')
+@commands.register(minPermissions=Permissions.Participant,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def undocheckin(client, message, **kwargs):
+    """Undo check-in for the current tournament
+    No Arguments
+    """
+    try:
+        participants = await kwargs.get('account').participants.index(kwargs.get('tournament_id'))
+        for x in participants:
+            if x['name'] == message.author.name:
+                await kwargs.get('account').participants.undo_check_in(kwargs.get('tournament_id'), x['id'])
+                break
+    except ChallongeException as e:
+        await client.send_message(message.author, T_OnChallongeException.format(e))
+    else:
+        await client.send_message(message.channel, 'Your checked in has been successfully reverted')
 
 
 ### USER
+
 
 @required_args('username')
 @commands.register(channelRestrictions=ChannelType.Any)

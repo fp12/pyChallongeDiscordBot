@@ -63,7 +63,7 @@ class Profiler():
 def profile(scope, **profilingArgs):
     def decorator(func):
         def wrapper(*args, **kwargs):
-            with Profiler(scope, **profilingArgs) as p:
+            with Profiler(scope, name=func.__qualname__, **profilingArgs) as p:
                 return func(*args, **kwargs)
         return wrapper
     return decorator
@@ -71,7 +71,7 @@ def profile(scope, **profilingArgs):
 def profile_async(scope, **profilingArgs):
     def decorator(func):
         async def wrapper(*args, **kwargs):
-            with Profiler(scope, **profilingArgs) as p:
+            with Profiler(scope, name=func.__qualname__, **profilingArgs) as p:
                 await func(*args, **kwargs)
         return wrapper
     return decorator
