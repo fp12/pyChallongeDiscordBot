@@ -4,7 +4,7 @@ from enum import Enum
 
 
 serverFormatNoTourney = '| {0:19}| {1:19}| {2:19}| {3:^55}|'
-serverFormatWTourney =  '| {0:19}| {1:19}| {2:19}| {3:19}| {4:19}| {5:13}|'
+serverFormatWTourney = '| {0:19}| {1:19}| {2:19}| {3:19}| {4:19}| {5:13}|'
 
 
 class ServersDB:
@@ -26,32 +26,36 @@ class ServersDB:
 
     def _save(self):
         with open('data/servers.json', 'w') as out_file:
-            json.dump(self._db, out_file)        
+            json.dump(self._db, out_file)
         self.dump()
 
     def _print_line(self, x):
         lines = []
         if len(x['tournaments']) == 0:
             lines.append(serverFormatNoTourney.format(x['id'],
-                                     x['managementChannel'],
-                                     '' if x['organization'] == None or x['organization'] == '' else x['organization'],
-                                     'None'))
+                                                      x['managementChannel'],
+                                                      '' if x['organization'] is None or x[
+                                                          'organization'] == '' else x['organization'],
+                                                      'None'))
         else:
             for i, t in enumerate(x['tournaments']):
                 lines.append(serverFormatWTourney.format(x['id'] if i == 0 else '',
-                                            x['managementChannel'] if i == 0 else '',
-                                            x['organization'] if i == 0 and x['organization'] != None and x['organization'] != '' else '',
-                                            x['tournaments'][i]['channel'],
-                                            x['tournaments'][i]['role'],
-                                            x['tournaments'][i]['challongeid']))
+                                                         x['managementChannel'] if i == 0 else '',
+                                                         x['organization'] if i == 0 and x[
+                                                             'organization'] is not None and x['organization'] != '' else '',
+                                                         x['tournaments'][
+                                                             i]['channel'],
+                                                         x['tournaments'][
+                                                             i]['role'],
+                                                         x['tournaments'][i]['challongeid']))
         return '\n'.join(lines)
 
     def dump(self):
         return utils.print_array('Servers database',
-                                serverFormatWTourney.format('Server ID', 'Management Channel', 'Organization', 'T. Channel', 'T. Role', 'T. Challonge'),
-                                self._db, 
-                                self._print_line)
-    
+                                 serverFormatWTourney.format(
+                                     'Server ID', 'Management Channel', 'Organization', 'T. Channel', 'T. Role', 'T. Challonge'),
+                                 self._db,
+                                 self._print_line)
 
     def add_server(self, server, channel):
         found = False
@@ -61,8 +65,9 @@ class ServersDB:
                 found = True
                 break
 
-        if found == False:
-            newServer = {'id':server.id, 'managementChannel':channel.id, 'organization':'', 'tournaments':[]}
+        if not found:
+            newServer = {'id': server.id, 'managementChannel': channel.id,
+                         'organization': '', 'tournaments': []}
             self._db.append(newServer)
         self._save()
 
@@ -79,7 +84,8 @@ class ServersDB:
                 x['organization'] = kwargs.get('organization')
                 self._save()
                 return
-        print('Attempted to edit server \'{0.name}\' ({0.id}) but it was not found in db'.format(server))
+        print(
+            'Attempted to edit server \'{0.name}\' ({0.id}) but it was not found in db'.format(server))
 
     def add_tournament(self, server, **kwargs):
         for x in self._db:
@@ -87,7 +93,8 @@ class ServersDB:
                 x['tournaments'].append(kwargs)
                 self._save()
                 return
-        print('Attempted to add a tournament on server \'{0.name}\' ({0.id}) but it was not found in db'.format(server))
+        print(
+            'Attempted to add a tournament on server \'{0.name}\' ({0.id}) but it was not found in db'.format(server))
 
     def remove_tournament(self, server, tournament):
         for x in self._db:
@@ -105,7 +112,8 @@ class ServersDB:
         return 0
 
     def _get_tournament_info(self, channel, info):
-        result = [y[info] for x in self._db if x['id'] == channel.server.id for y in x['tournaments'] if y['channel'] == channel.id]
+        result = [y[info] for x in self._db if x['id'] == channel.server.id for y in x[
+            'tournaments'] if y['channel'] == channel.id]
         if len(result) == 0:
             print('No results for get_tournament_id')
         elif len(result) > 1:
@@ -131,16 +139,16 @@ class ChannelType(Enum):
     Other = 1 << 4
     NewTourney = Mods | Other
     Any = Dev | Private | Mods | Tournament | Other
-    
+
     def __or__(self, other):
         return self.value | other.value
-    
+
     def __and__(self, other):
         return self.value & other.value
 
 
 def get_channel_type(channel):
-    #if channel.server.owner.id == '150316380992962562':
+    # if channel.server.owner.id == appConfig['devid']:
     #    return ChannelType.Dev
     if channel.is_private:
         return ChannelType.Private

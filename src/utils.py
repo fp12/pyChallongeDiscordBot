@@ -4,24 +4,25 @@ def print_array(title, header, iterable, func):
     headerSep = '-'
     lineLen = len(header)
     arrayLineSeparators = ''.ljust(lineLen, arraySep)
-    headerLineSeparators = '|'.ljust(lineLen-1, headerSep) + '|'
-    
+    headerLineSeparators = vertSep.ljust(lineLen - 1, headerSep) + vertSep
+
     arr = []
 
     arr.append(arrayLineSeparators)
-    arr.append('| ' + title.ljust(lineLen-3) + '|')
+    arr.append(vertSep + ' ' + title.ljust(lineLen - 3) + vertSep)
     arr.append(headerLineSeparators)
     arr.append(header)
     arr.append(headerLineSeparators)
     for x in iterable:
         s = func(x)
-        if s != None and s != '':
+        if s is not None and s != '':
             arr.append(s)
     arr.append(arrayLineSeparators)
 
     finalStr = '\n'.join(arr)
     print(finalStr)
     return finalStr
+
 
 def paginate(dump, max_per_page=2000):
     paginated = []
@@ -32,10 +33,10 @@ def paginate(dump, max_per_page=2000):
         len_count = 0
         split = dump.splitlines(True)
         for i, line in enumerate(split):
-            if i == len(split)-1:
+            if i == len(split) - 1:
                 paginated.append(dump[page_index:])
             elif len_count + len(line) >= max_per_page:
-                paginated.append(dump[page_index:page_index+len_count])
+                paginated.append(dump[page_index:page_index + len_count])
                 page_index += len_count
                 len_count = len(line)
             else:

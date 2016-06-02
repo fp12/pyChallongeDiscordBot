@@ -10,7 +10,7 @@ from utils import *
 from challonge import Account, ChallongeException
 
 
-### DEV ONLY
+# DEV ONLY
 
 @aliases('exit', 'out')
 @commands.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
@@ -28,21 +28,21 @@ async def dump(client, message, **kwargs):
 
     maxChars = 1800
     what = kwargs.get('what')
-    if what == None or what == 'commands':
+    if what is None or what == 'commands':
         for page in paginate(commands.dump(), maxChars):
             await client.send_message(message.author, decorate(page))
-    if what == None or what == 'profile':
+    if what is None or what == 'profile':
         for page in paginate(collector.dump(), maxChars):
             await client.send_message(message.author, decorate(page))
-    if what == None or what == 'servers':
+    if what is None or what == 'servers':
         for page in paginate(servers_db.dump(), maxChars):
             await client.send_message(message.author, decorate(page))
-    if what == None or what == 'users':
+    if what is None or what == 'users':
         for page in paginate(users_db.dump(), maxChars):
             await client.send_message(message.author, decorate(page))
 
 
-### SERVER OWNER
+# SERVER OWNER
 
 @required_args('key')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Private)
@@ -69,7 +69,7 @@ async def organization(client, message, **kwargs):
     """
     servers_db.edit(message.channel.server, **kwargs)
     organization = kwargs.get('organization')
-    if organization == None:
+    if organization is None:
         await client.send_message(message.channel, 'Organization has been reset for this server')
     else:
         await client.send_message(message.channel, 'Organization **{0}** has been set for this server'.format(organization))
@@ -84,7 +84,7 @@ async def promote(client, message, **kwargs):
     member -- the member to be granted management rights
     """
     member = message.channel.server.get_member_named(kwargs.get('member'))
-    if member != None:
+    if member is not None:
         for r in message.channel.server.me.roles:
             if r.name == C_RoleName:
                 try:
@@ -94,7 +94,8 @@ async def promote(client, message, **kwargs):
                     await client.send_message(message.channel, 'Could not promote Member **{0.name}** because of insufficient permissions.\n{1} could you add Role \'Challonge\' to this member? Thanks!'.format(member, message.channel.server.owner.mention))
                 finally:
                     return
-        print('command:promote could not find \'{}\' Role? roles: {}'.format(C_RoleName, ' '.join([r.name for r in message.channel.server.me.roles])))
+        print('command:promote could not find \'{}\' Role? roles: {}'.format(
+            C_RoleName, ' '.join([r.name for r in message.channel.server.me.roles])))
     else:
         await client.send_message(message.channel, 'Could not find Member **{}**'.format(kwargs.get('member')))
 
@@ -107,12 +108,12 @@ async def leaveserver(client, message, **kwargs):
     channelId = servers_db.get_management_channel(message.channel.server)
     await client.delete_channel(discord.Channel(server=message.channel.server, id=channelId))
     roles = [x for x in message.channel.server.me.roles if x.name == C_RoleName]
-    #if len(roles) == 1:
+    # if len(roles) == 1:
     #    await client.delete_role(message.channel.server, roles[0])
     await client.leave_server(message.channel.server)
 
 
-## ORGANIZER
+# ORGANIZER
 
 @helpers('account')
 @aliases('new')
@@ -132,13 +133,14 @@ async def create(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        role = await client.create_role(message.channel.server, name='Participant_'+kwargs.get('name'), mentionable=True)
+        role = await client.create_role(message.channel.server, name='Participant_' + kwargs.get('name'), mentionable=True)
         chChannel = await client.create_channel(message.channel.server, 'T_' + kwargs.get('name'))
-        servers_db.add_tournament(message.channel.server, channel=chChannel.id, role=role.id, challongeid=t['id'])
+        servers_db.add_tournament(
+            message.channel.server, channel=chChannel.id, role=role.id, challongeid=t['id'])
         await client.send_message(message.channel, T_TournamentCreated.format(kwargs.get('name'),
-                                                                                t['full-challonge-url'],
-                                                                                role.mention,
-                                                                                chChannel.mention))
+                                                                              t['full-challonge-url'],
+                                                                              role.mention,
+                                                                              chChannel.mention))
 
 
 @helpers('account', 'tournament_id')
@@ -180,7 +182,8 @@ async def start(client, message, **kwargs):
         await client.edit_channel_permissions(message.channel, message.channel.server.default_role, deny=deny)
         await client.send_message(message.channel, 'Tournament is now started!')
         # TODO real text (witch games to play...)
-        # Discord won't display SVGs yet, so have a look at: https://cloudconvert.com/api/svgtopng
+        # Discord won't display SVGs yet, so have a look at:
+        # https://cloudconvert.com/api/svgtopng
 
 
 @helpers('account', 'tournament_id')
@@ -270,11 +273,12 @@ async def destroy(client, message, **kwargs):
         await kwargs.get('account').tournaments.destroy(kwargs.get('tournament_id'))
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
-    else:        
+    else:
         await client.delete_role(message.channel.server, kwargs.get('tournament_role'))
         await client.delete_channel(message.channel)
         await client.send_message(message.author, 'Tournament {0} has been destroyed!'.format('name'))
-        servers_db.remove_tournament(message.channel.server, kwargs.get('tournament_id'))
+        servers_db.remove_tournament(
+            message.channel.server, kwargs.get('tournament_id'))
 
 
 '''
@@ -289,7 +293,7 @@ async def reopen(client, message, **kwargs):
 '''
 
 
-### PARTICIPANT
+# PARTICIPANT
 
 @helpers('account', 'tournament_id', 'participant_name')
 @required_args('score')
@@ -307,7 +311,7 @@ async def update(client, message, **kwargs):
 async def forfeit(client, message, **kwargs):
     """Forfeit for the current tournament
     If the tournament is pending, you will be removed from the participants list
-    If the tournament is in progress, Challonge will forfeit your potential remaining games 
+    If the tournament is in progress, Challonge will forfeit your potential remaining games
     and you won't be able to write in this channel anymore
     No Arguments
     """
@@ -372,7 +376,7 @@ async def undocheckin(client, message, **kwargs):
         await client.send_message(message.channel, 'Your checked in has been successfully reverted')
 
 
-### USER
+# USER
 
 
 @required_args('username')
@@ -395,9 +399,9 @@ async def help(client, message, **kwargs):
     command -- the command you want more info on
     """
     commandName = kwargs.get('command')
-    if commandName != None:
+    if commandName is not None:
         command = commands.find(commandName)
-        if command != None:
+        if command is not None:
             try:
                 command.validate_context(client, message, [])
             except (ContextValidationError_InsufficientPrivileges, ContextValidationError_WrongChannel):
@@ -405,7 +409,7 @@ async def help(client, message, **kwargs):
                 return
             except:
                 pass
-                
+
             await client.send_message(message.channel, command.pretty_print())
         else:
             await client.send_message(message.channel, 'Inexistent command or you don\'t have enough privileges to use it')
@@ -430,7 +434,7 @@ async def join(client, message, **kwargs):
     else:
         client.add_roles(message.author, kwargs.get('tournament_role'))
         await client.send_message(message.channel, 'You have successfully joined the tournament')
-        #TODO more info
+        # TODO more info
 
 
 @required_args('feedback')

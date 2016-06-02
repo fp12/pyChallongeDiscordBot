@@ -16,9 +16,11 @@ class ContextValidationError_MissingParameters(Exception):
         self.req = req
         self.given = given
 
+
 class ContextValidationError_WrongChannel(Exception):
     def __str__(self):
         return T_ValidateCommandContext_BadChannel
+
 
 class ContextValidationError_InsufficientPrivileges(Exception):
     def __str__(self):
@@ -28,8 +30,10 @@ class ContextValidationError_InsufficientPrivileges(Exception):
 class Attributes:
     def __init__(self, **kwargs):
         self.minPermissions = kwargs.get('minPermissions', Permissions.User)
-        self.channelRestrictions = kwargs.get('channelRestrictions', ChannelType.Other)
-        self.challongeAccess = kwargs.get('challongeAccess', ChallongeAccess.NotRequired)
+        self.channelRestrictions = kwargs.get(
+            'channelRestrictions', ChannelType.Other)
+        self.challongeAccess = kwargs.get(
+            'challongeAccess', ChallongeAccess.NotRequired)
 
 
 class Command:
@@ -41,53 +45,49 @@ class Command:
         self.reqParams = []
         self.optParams = []
         self.helpers = []
-    
 
     def add_required_params(self, *args):
         self.reqParams = args
         return self
-    
 
     def add_optional_params(self, *args):
         self.optParams = args
         return self
-    
 
     def add_aliases(self, *args):
         self.aliases = args
         return self
-    
-    
+
     def add_helpers(self, *args):
         self.helpers = args
         return self
-    
 
     def validate_context(self, client, message, postCommand):
         authorPerms = get_permissions(message.author, message.server)
         if authorPerms >= self.attributes.minPermissions:
             channelType = get_channel_type(message.channel)
             if channelType == ChannelType.Dev or channelType & self.attributes.channelRestrictions:
-                reqParamsExpected = 0 if self.reqParams == None else len(self.reqParams)
+                reqParamsExpected = 0 if self.reqParams is None else len(
+                    self.reqParams)
                 givenParams = len(postCommand)
                 if givenParams >= reqParamsExpected:
                     if self.attributes.challongeAccess == ChallongeAccess.Required:
-                        acc = users_db.get_account(message.server) # can raise
+                        acc = users_db.get_account(message.server)  # can raise
                 else:
-                    raise ContextValidationError_MissingParameters(reqParamsExpected, givenParams)                    
+                    raise ContextValidationError_MissingParameters(
+                        reqParamsExpected, givenParams)
             else:
-                raise ContextValidationError_WrongChannel               
+                raise ContextValidationError_WrongChannel
         else:
             raise ContextValidationError_InsufficientPrivileges
-
 
     def validate_name(self, name):
         if self.name == name:
             return True
-        elif self.aliases != None:
+        elif self.aliases is not None:
             return name in self.aliases
         return False
-    
+
     def _fetch_helpers(self, message):
         kwargs = {}
         for x in self.helpers:
@@ -97,17 +97,18 @@ class Command:
                 kwargs[x] = servers_db.get_tournament_id(message.channel)
             elif x == 'tournament_role':
                 roleid = servers_db.get_tournament_role(message.channel)
-                kwargs[x] = find(lambda r: r.id == roleid, message.channel.server.roles)
+                kwargs[x] = find(lambda r: r.id == roleid,
+                                 message.channel.server.roles)
             elif x == 'participant_username':
                 participant = users_db.get_user(message.author.id)
-                if participant != None:
+                if participant is not None:
                     kwargs[x] = participant.challongeUserName
 
         return kwargs
 
     async def execute(self, client, message, postCommand):
         kwargs = {}
-        
+
         for count, x in enumerate(self.reqParams):
             kwargs[x] = postCommand[count]
         offset = len(self.reqParams)
@@ -120,18 +121,17 @@ class Command:
 
         await self.cb(client, message, **kwargs)
 
-
     def pretty_print(self):
-        return self.simple_print() + '\n```{0}{1}```'.format('' if self.cb.__doc__ == None else self.cb.__doc__,
+        return self.simple_print() + '\n```{0}{1}```'.format('' if self.cb.__doc__ is None else self.cb.__doc__,
                                                              'No aliases' if len(self.aliases) == 0 else 'Aliases: ' + ' / '.join(self.aliases))
-    
 
     def simple_print(self):
-        return '`{0}` {1}{2} -- *{3}*'.format( self.name,
-                                        ' ' if len(self.reqParams) == 0 else ' '.join(['['+p+']' for p in self.reqParams]),
-                                        ' ' if len(self.optParams) == 0 else ' '.join(['{'+p+'}' for p in self.optParams]), 
-                                        'No description available' if self.cb.__doc__ == None else self.cb.__doc__.splitlines()[0])
-
+        return '`{0}` {1}{2} -- *{3}*'.format(self.name,
+                                              ' ' if len(self.reqParams) == 0 else ' '.join(
+                                                  ['[' + p + ']' for p in self.reqParams]),
+                                              ' ' if len(self.optParams) == 0 else ' '.join(
+                                                  ['{' + p + '}' for p in self.optParams]),
+                                              'No description available' if self.cb.__doc__ is None else self.cb.__doc__.splitlines()[0])
 
 
 class CommandsHandler:
@@ -157,8 +157,10 @@ class CommandsHandler:
     def register(self, **attributes):
         def decorator(func):
             async def wrapper(client, message, **postCommand):
-                # choose only those that are most likely arguments (could be Account...)
-                args = ' '.join([v for v in postCommand.values() if isinstance(v, str)])
+                # choose only those that are most likely arguments (could be
+                # Account...)
+                args = ' '.join(
+                    [v for v in postCommand.values() if isinstance(v, str)])
                 # server for profiling info
                 server = 0 if message.channel.is_private else message.channel.server.id
                 with Profiler(Scope.Command, name=func.__name__, args=args, server=server) as p:
@@ -179,7 +181,7 @@ class CommandsHandler:
         else:
             command = None
 
-        if command != None:
+        if command is not None:
             postCommand = split[offset:len(split)]
             try:
                 command.validate_context(client, message, postCommand)
@@ -191,7 +193,7 @@ class CommandsHandler:
                     UserNameNotSet,
                     APIKeyNotSet) as e:
                 await client.send_message(message.channel, e)
-            else:                
+            else:
                 await command.execute(client, message, postCommand)
                 print(T_Log_ValidatedCommand.format(command.name,
                                                     '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand),
@@ -210,14 +212,17 @@ class CommandsHandler:
 
     def dump(self):
         return utils.print_array('Commands registered',
-                                commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Challonge', 'Aliases', 'Required Args', 'Optional Args'), 
-                                self._commands, 
-                                lambda c: commandFormat.format( c.name, 
-                                                                c.attributes.minPermissions.name, 
+                                 commandFormat.format(
+                                     'Name', 'Min Permissions', 'Channel Type', 'Challonge', 'Aliases', 'Required Args', 'Optional Args'),
+                                 self._commands,
+                                 lambda c: commandFormat.format(c.name,
+                                                                c.attributes.minPermissions.name,
                                                                 c.attributes.channelRestrictions.name,
                                                                 'True' if c.attributes.challongeAccess == ChallongeAccess.Required else 'False',
-                                                                '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
-                                                                '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams), 
+                                                                '-' if len(c.aliases) == 0 else '/'.join(
+                                                                    c.aliases),
+                                                                '-' if len(c.reqParams) == 0 else '/'.join(
+                                                                    c.reqParams),
                                                                 '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
 
 
@@ -240,6 +245,7 @@ def aliases(*args):
     def decorator(func):
         return func.add_aliases(*args)
     return decorator
+
 
 def helpers(*args):
     def decorator(func):
