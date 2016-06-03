@@ -34,19 +34,15 @@ class ServersDB:
         if len(x['tournaments']) == 0:
             lines.append(serverFormatNoTourney.format(x['id'],
                                                       x['managementChannel'],
-                                                      '' if x['organization'] is None or x[
-                                                          'organization'] == '' else x['organization'],
+                                                      '' if x['organization'] is None or x['organization'] == '' else x['organization'],
                                                       'None'))
         else:
             for i, t in enumerate(x['tournaments']):
                 lines.append(serverFormatWTourney.format(x['id'] if i == 0 else '',
                                                          x['managementChannel'] if i == 0 else '',
-                                                         x['organization'] if i == 0 and x[
-                                                             'organization'] is not None and x['organization'] != '' else '',
-                                                         x['tournaments'][
-                                                             i]['channel'],
-                                                         x['tournaments'][
-                                                             i]['role'],
+                                                         x['organization'] if i == 0 and x['organization'] is not None and x['organization'] != '' else '',
+                                                         x['tournaments'][i]['channel'],
+                                                         x['tournaments'][i]['role'],
                                                          x['tournaments'][i]['challongeid']))
         return '\n'.join(lines)
 
@@ -110,6 +106,12 @@ class ServersDB:
             if x['id'] == server.id:
                 return x['managementChannel']
         return 0
+
+    def get_organization(self, server):
+        for x in self._db:
+            if x['id'] == server.id:
+                return x['organization']
+        return None
 
     def _get_tournament_info(self, channel, info):
         result = [y[info] for x in self._db if x['id'] == channel.server.id for y in x[

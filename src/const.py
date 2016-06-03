@@ -42,3 +42,10 @@ T_TournamentCreated = cleandoc("""Tournament **{0}** has been successfully creat
 T_OnChallongeException = cleandoc("""Something happened during the Challonge request! Sorry, your command will fail...
     Here is the feedback from Challonge:
     ```{}```""")
+
+T_PromoteError = cleandoc("""Could not promote Member **{0.name}** because of insufficient permissions.
+    {1} could you add Role 'Challonge' to this member? Thanks!""")
+T_DemoteError = cleandoc("""'Could not demote Member **{0.name}** because of insufficient permissions.
+    {1} could you remove Role 'Challonge' to this member? Thanks!""")
+
+T_RemoveChallongeRoleError = 'Could not remove role ' + C_RoleName + ' because of insufficient permissions.'

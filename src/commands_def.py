@@ -3,14 +3,17 @@ import asyncio
 from c_users import users_db, ChallongeAccess
 from c_servers import servers_db, ChannelType
 from const import *
-from commands_core import commands, required_args, optional_args, aliases, helpers, ContextValidationError_InsufficientPrivileges, ContextValidationError_WrongChannel
+from commands_core import *
 from permissions import Permissions
 from profiling import collector
 from utils import *
+import challonge_utils
 from challonge import Account, ChallongeException
-
+import string
+import re
 
 # DEV ONLY
+
 
 @aliases('exit', 'out')
 @commands.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
@@ -78,7 +81,7 @@ async def organization(client, message, **kwargs):
 @required_args('member')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
 async def promote(client, message, **kwargs):
-    """Promote a server member to be able to manage tournaments with you
+    """Promote a member to be able to manage tournaments with you
     You can also simply assign the member the role 'Challonge'
     Arguments:
     member -- the member to be granted management rights
@@ -91,11 +94,35 @@ async def promote(client, message, **kwargs):
                     await client.add_roles(member, r)
                     await client.send_message(message.channel, 'Member **{0.name}** has been promoted'.format(member))
                 except discord.errors.Forbidden:
-                    await client.send_message(message.channel, 'Could not promote Member **{0.name}** because of insufficient permissions.\n{1} could you add Role \'Challonge\' to this member? Thanks!'.format(member, message.channel.server.owner.mention))
+                    await client.send_message(message.channel, T_PromoteError.format(member, message.channel.server.owner.mention))
                 finally:
                     return
         print('command:promote could not find \'{}\' Role? roles: {}'.format(
             C_RoleName, ' '.join([r.name for r in message.channel.server.me.roles])))
+    else:
+        await client.send_message(message.channel, 'Could not find Member **{}**'.format(kwargs.get('member')))
+
+
+@required_args('member')
+@commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
+async def demote(client, message, **kwargs):
+    """Demote a member to be able to manage tournaments with you
+    You can also simply unassign the member the role 'Challonge'
+    Arguments:
+    member -- the member to be removed management rights
+    """
+    member = message.channel.server.get_member_named(kwargs.get('member'))
+    if member:
+        for r in message.channel.server.me.roles:
+            if r.name == C_RoleName:
+                try:
+                    await client.remove_roles(member, r)
+                    await client.send_message(message.channel, 'Member **{0.name}** has been demoted'.format(member))
+                except discord.errors.Forbidden:
+                    await client.send_message(message.channel, T_DemoteError.format(member, message.channel.server.owner.mention))
+                finally:
+                    return
+        print('command:promote could not find \'{}\' Role? roles: {}'.format(C_RoleName, ' '.join([r.name for r in message.channel.server.me.roles])))
     else:
         await client.send_message(message.channel, 'Could not find Member **{}**'.format(kwargs.get('member')))
 
@@ -108,8 +135,11 @@ async def leaveserver(client, message, **kwargs):
     channelId = servers_db.get_management_channel(message.channel.server)
     await client.delete_channel(discord.Channel(server=message.channel.server, id=channelId))
     roles = [x for x in message.channel.server.me.roles if x.name == C_RoleName]
-    # if len(roles) == 1:
-    #    await client.delete_role(message.channel.server, roles[0])
+    if len(roles) == 1:
+        try:
+            await client.delete_role(message.channel.server, roles[0])
+        except discord.errors.Forbidden:
+            await client.send_message(message.channel.server.owner, T_RemoveChallongeRoleError)
     await client.leave_server(message.channel.server)
 
 
@@ -117,26 +147,53 @@ async def leaveserver(client, message, **kwargs):
 
 @helpers('account')
 @aliases('new')
+@optional_args('subdomain')
 @required_args('name', 'url', 'type')
 @commands.register(minPermissions=Permissions.Organizer,
                    channelRestrictions=ChannelType.NewTourney,
                    challongeAccess=ChallongeAccess.Required)
 async def create(client, message, **kwargs):
     """Create a new tournament
-    Arguments:
-    name -- will be used as the tournament name
-    urlname -- name used for the url http://challonge.com/urlname
-    type -- can be [singleelim, doubleelim]
+    Required Arguments:
+    name -- will be used as the tournament name (Max: 60 characters, no spaces)
+    url -- http://challonge.com/url (letters, numbers, and underscores only)
+    type -- can be [singleelim, doubleelim, roundrobin, swiss]
+    Optional Arguments:
+    subdomain -- a valid Challonge organization http://subdomain.challonge.com/url
     """
+    # Validate name
+    if len(kwargs.get('name')) > 60:
+        await client.send_message(message.channel, 'Invalid name {}. Please use less than 60 characters and no spaces'.format(kwargs.get('name')))
+        return
+    # Validate url
+    diff = set(kwargs.get('url')) - set(string.ascii_letters + string.digits + '_')
+    if diff:
+        await client.send_message(message.channel, 'Invalid url {}. Please use only letters, numbers and underscores'.format(kwargs.get('url')))
+        return
+    # Validate type
+    if kwargs.get('type') not in ['singleelim', 'doubleelim', 'roundrobin', 'swiss']:
+        await client.send_message(message.channel, 'Invalid tournament type {}. Please choose from singleelim, doubleelim, roundrobin or swiss'.format(kwargs.get('type')))
+        return
+    tournament_type = 'single elimination' if kwargs.get('type') == 'singleelim'\
+        else 'double elimination' if kwargs.get('type') == 'doubleelim'\
+        else 'round robin' if kwargs.get('type') == 'roundrobin'\
+        else 'swiss'
+
+    params = {}
+    if kwargs.get('subdomain', None):
+        params['subdomain'] = kwargs.get('subdomain')
+    elif servers_db.get_organization(message.channel.server):
+        params['subdomain'] = servers_db.get_organization(
+            message.channel.server)
+
     try:
-        t = await kwargs.get('account').tournaments.create(kwargs.get('name'), kwargs.get('url'))
+        t = await kwargs.get('account').tournaments.create(kwargs.get('name'), kwargs.get('url'), tournament_type, **params)
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
         role = await client.create_role(message.channel.server, name='Participant_' + kwargs.get('name'), mentionable=True)
         chChannel = await client.create_channel(message.channel.server, 'T_' + kwargs.get('name'))
-        servers_db.add_tournament(
-            message.channel.server, channel=chChannel.id, role=role.id, challongeid=t['id'])
+        servers_db.add_tournament(message.channel.server, channel=chChannel.id, role=role.id, challongeid=t['id'])
         await client.send_message(message.channel, T_TournamentCreated.format(kwargs.get('name'),
                                                                               t['full-challonge-url'],
                                                                               role.mention,
@@ -181,7 +238,7 @@ async def start(client, message, **kwargs):
         deny.send_messages = True
         await client.edit_channel_permissions(message.channel, message.channel.server.default_role, deny=deny)
         await client.send_message(message.channel, 'Tournament is now started!')
-        # TODO real text (witch games to play...)
+        # TODO real text (with games to play...)
         # Discord won't display SVGs yet, so have a look at:
         # https://cloudconvert.com/api/svgtopng
 
@@ -218,7 +275,7 @@ async def checkin_validate(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        await client.send_message(message.channel, 'Checkiins have been processed')
+        await client.send_message(message.channel, 'Check-ins have been processed')
         # TODO real text ?
 
 
@@ -239,7 +296,7 @@ async def checkin_abort(client, message, **kwargs):
         # TODO real text ?
 
 
-@helpers('account', 'tournament_id')
+@helpers('account', 'tournament_id', 'tournament_role')
 @commands.register(minPermissions=Permissions.Organizer,
                    channelRestrictions=ChannelType.Tournament,
                    challongeAccess=ChallongeAccess.Required)
@@ -255,7 +312,9 @@ async def finalize(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        # TODO role management
+        # let's remove the role associated to this tournament.
+        # only the Challonge role will be able to write in it
+        await client.delete_role(message.channel.server, kwargs.get('tournament_role'))
         await client.send_message(message.channel, 'Tournament has been finalized!')
         # TODO real text ?
 
@@ -281,27 +340,74 @@ async def destroy(client, message, **kwargs):
             message.channel.server, kwargs.get('tournament_id'))
 
 
-'''
-@helpers('account', 'tournament_id')
-@required_args('player1', 'player2')
-@commands.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.Required)
-async def reopen(client, message, **kwargs):
-    # can't do that with the API... :/
-    pass
-'''
-
-
 # PARTICIPANT
 
 @helpers('account', 'tournament_id', 'participant_name')
-@required_args('score')
+@required_args('score', 'opponent')
 @commands.register(minPermissions=Permissions.Participant,
                    channelRestrictions=ChannelType.Tournament,
                    challongeAccess=ChallongeAccess.Required)
 async def update(client, message, **kwargs):
-    await client.send_message(message.channel, 'update')
+    """Report your score against another participant
+    Required Arguments:
+    score -- [YourScore]-[OpponentScore] : 5-0. Can be comma separated: 5-0,4-5,5-3
+    opponent --Your opponnent name or nickname or mention (mention is safer)
+    """
+    # Verify score format
+    result = re.compile('(\d+-\d+)(,\d+-\d+)*')
+    if not result.match(kwargs.get('score')):
+        await client.send_message(message.channel, 'Invalid score format. Please use the following 5-0,4-5,5-3')
+        return
+    # Verify other member: mention first, then name, then nick
+    opponentId = 0
+    regexRes = re.findall(r'<@!?([0-9]+)>', kwargs.get('opponent'))
+    if len(regexRes) == 1:
+        opponentId = regexRes[0]
+    else:
+        member = message.channel.server.get_member_named(
+            kwargs.get('opponent'))
+        if member:
+            opponentId = member.id
+
+    member = discord.utils.get(message.channel.members, id=opponentId)
+    if member is None:
+        await client.send_message(message.channel, 'I could not find your opponent on this server')
+        return
+
+    # Process
+    try:
+        participants = await kwargs.get('account').participants.index(kwargs.get('tournament_id'))
+    except ChallongeException as e:
+        await client.send_message(message.author, T_OnChallongeException.format(e))
+    else:
+        for x in participants:
+            if x['name'] == member.name:
+                opponentId = x['id']
+            elif x['name'] == message.author.name:
+                authorId = x['id']
+        if not authorId:
+            await client.send_message(message.channel, 'I could not find you in this tournament')
+            return
+        elif not opponentId:
+            await client.send_message(message.channel, 'I could not find your opponent in this tournament')
+            return
+        else:
+            try:
+                openMatches = kwargs.get('account').matches.index(kwargs.get('tournament_id'), state='open', participant_id=authorId)
+            except ChallongeException as e:
+                await client.send_message(message.author, T_OnChallongeException.format(e))
+            else:
+                for m in openMatches:
+                    if m['player1_id'] == authorId and m['player2_id'] == opponentId or\
+                            m['player2_id'] == authorId and m['player1_id'] == opponentId:
+                        winner_id = authorId if challonge_utils.author_is_winner(kwargs.get('score')) else opponentId
+                        try:
+                            kwargs.get('account').matches.update(kwargs.get('tournament_id'), m['id'], scores_csv=kwargs.get('score'), winner_id=winner_id)
+                        except ChallongeException as e:
+                            await client.send_message(message.author, T_OnChallongeException.format(e))
+                        else:
+                            await client.send_message(message.channel, 'Your results have been uploaded.')
+                            # TODO: print next games for both players
 
 
 @helpers('account', 'tournament_id', 'participant_name', 'tournament_role')
@@ -324,7 +430,7 @@ async def forfeit(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        client.remove_roles(message.author, kwargs.get('tournament_role'))
+        await client.remove_roles(message.author, kwargs.get('tournament_role'))
         await client.send_message(message.channel, 'You forfeited from this tournament')
 
 

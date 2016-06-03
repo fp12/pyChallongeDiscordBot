@@ -97,8 +97,7 @@ class Command:
                 kwargs[x] = servers_db.get_tournament_id(message.channel)
             elif x == 'tournament_role':
                 roleid = servers_db.get_tournament_role(message.channel)
-                kwargs[x] = find(lambda r: r.id == roleid,
-                                 message.channel.server.roles)
+                kwargs[x] = discord.utils.find(lambda r: r.id == roleid, message.channel.server.roles)
             elif x == 'participant_username':
                 participant = users_db.get_user(message.author.id)
                 if participant is not None:
@@ -159,8 +158,7 @@ class CommandsHandler:
             async def wrapper(client, message, **postCommand):
                 # choose only those that are most likely arguments (could be
                 # Account...)
-                args = ' '.join(
-                    [v for v in postCommand.values() if isinstance(v, str)])
+                args = ' '.join([v for v in postCommand.values() if isinstance(v, str)])
                 # server for profiling info
                 server = 0 if message.channel.is_private else message.channel.server.id
                 with Profiler(Scope.Command, name=func.__name__, args=args, server=server) as p:
