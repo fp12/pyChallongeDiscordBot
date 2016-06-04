@@ -26,9 +26,9 @@ T_Log_RemovedServer = 'on_server_removed [Server \'{0}\' ({1})] [Owner \'{2}\' (
 T_Log_CleanRemovedServer = 'cleaned Server {} from db'
 T_Log_ValidatedCommand = 'on_validated_command [{0}{1}] from @{2.author.name} on {3}'
 
-T_ValidateCommandContext_BadParameters = 'Wrong number of parameters for command **{0}** (expected: {1}, given: {2})'
-T_ValidateCommandContext_BadChannel = 'Wrong channel for this command'
-T_ValidateCommandContext_BadPrivileges = 'Not enough privileges for this command'
+T_ValidateCommandContext_BadParameters = '❌ Wrong number of parameters for command **{0}** (expected: {1}, given: {2})'
+T_ValidateCommandContext_BadChannel = '❌ Wrong channel for this command'
+T_ValidateCommandContext_BadPrivileges = '❌ Not enough privileges for this command'
 
 T_LeaveServer_Instructions = cleandoc("""Thanks you for using the Challonge bot! The management channel and the Challonge role have been removed from server {0}
     Feel free to send feedback here with command *feedback*""")
@@ -39,13 +39,13 @@ T_TournamentCreated = cleandoc("""Tournament **{0}** has been successfully creat
     The channel {3} has been created to centralize all discussion about this tournament
     Have Fun!""")
 
-T_OnChallongeException = cleandoc("""Something happened during the Challonge request! Sorry, your command will fail...
+T_OnChallongeException = cleandoc("""❌ Something happened during the Challonge request! Sorry, your command will fail...
     Here is the feedback from Challonge:
     ```{}```""")
 
-T_PromoteError = cleandoc("""Could not promote Member **{0.name}** because of insufficient permissions.
+T_PromoteError = cleandoc("""❌ Could not promote Member **{0.name}** because of insufficient permissions.
     {1} could you add Role 'Challonge' to this member? Thanks!""")
-T_DemoteError = cleandoc("""'Could not demote Member **{0.name}** because of insufficient permissions.
+T_DemoteError = cleandoc("""❌ Could not demote Member **{0.name}** because of insufficient permissions.
     {1} could you remove Role 'Challonge' to this member? Thanks!""")
 
-T_RemoveChallongeRoleError = 'Could not remove role ' + C_RoleName + ' because of insufficient permissions.'
+T_RemoveChallongeRoleError = '❌ Could not remove role ' + C_RoleName + ' because of insufficient permissions.'

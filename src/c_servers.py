@@ -3,8 +3,8 @@ import utils
 from enum import Enum
 
 
-serverFormatNoTourney = '| {0:19}| {1:19}| {2:19}| {3:^55}|'
-serverFormatWTourney = '| {0:19}| {1:19}| {2:19}| {3:19}| {4:19}| {5:13}|'
+serverFormatNoTourney = '| {0:19}| {1:19}| {2:19}| {3:19}| {4:^55}|'
+serverFormatWTourney = '| {0:19}| {1:19}| {2:19}| {3:19}| {4:19}| {5:19}| {6:13}|'
 
 
 class ServersDB:
@@ -33,12 +33,14 @@ class ServersDB:
         lines = []
         if len(x['tournaments']) == 0:
             lines.append(serverFormatNoTourney.format(x['id'],
+                                                      x['ownerid'],
                                                       x['managementChannel'],
                                                       '' if x['organization'] is None or x['organization'] == '' else x['organization'],
                                                       'None'))
         else:
             for i, t in enumerate(x['tournaments']):
                 lines.append(serverFormatWTourney.format(x['id'] if i == 0 else '',
+                                                         x['ownerid'] if i == 0 else '',
                                                          x['managementChannel'] if i == 0 else '',
                                                          x['organization'] if i == 0 and x['organization'] is not None and x['organization'] != '' else '',
                                                          x['tournaments'][i]['channel'],
@@ -48,8 +50,7 @@ class ServersDB:
 
     def dump(self):
         return utils.print_array('Servers database',
-                                 serverFormatWTourney.format(
-                                     'Server ID', 'Management Channel', 'Organization', 'T. Channel', 'T. Role', 'T. Challonge'),
+                                 serverFormatWTourney.format('Server ID', 'Owner ID', 'Management Channel', 'Organization', 'T. Channel', 'T. Role', 'T. Challonge'),
                                  self._db,
                                  self._print_line)
 
@@ -62,8 +63,7 @@ class ServersDB:
                 break
 
         if not found:
-            newServer = {'id': server.id, 'managementChannel': channel.id,
-                         'organization': '', 'tournaments': []}
+            newServer = {'id': server.id, 'ownerid': server.owner.id, 'managementChannel': channel.id, 'organization': '', 'tournaments': []}
             self._db.append(newServer)
         self._save()
 
@@ -100,6 +100,12 @@ class ServersDB:
                         x['tournaments'].remove(y)
                         self._save()
                         return
+
+    def get_owner_id(self, server):
+        for x in self._db:
+            if x['id'] == server.id:
+                return x['ownerid']
+        return 0
 
     def get_management_channel(self, server):
         for x in self._db:

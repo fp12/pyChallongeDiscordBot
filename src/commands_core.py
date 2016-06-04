@@ -63,7 +63,7 @@ class Command:
         return self
 
     def validate_context(self, client, message, postCommand):
-        authorPerms = get_permissions(message.author, message.server)
+        authorPerms = get_permissions(message.author, message.channel)
         if authorPerms >= self.attributes.minPermissions:
             channelType = get_channel_type(message.channel)
             if channelType == ChannelType.Dev or channelType & self.attributes.channelRestrictions:
@@ -126,10 +126,8 @@ class Command:
 
     def simple_print(self):
         return '`{0}` {1}{2} -- *{3}*'.format(self.name,
-                                              ' ' if len(self.reqParams) == 0 else ' '.join(
-                                                  ['[' + p + ']' for p in self.reqParams]),
-                                              ' ' if len(self.optParams) == 0 else ' '.join(
-                                                  ['{' + p + '}' for p in self.optParams]),
+                                              ' ' if len(self.reqParams) == 0 else ' '.join(['[' + p + ']' for p in self.reqParams]),
+                                              ' ' if len(self.optParams) == 0 else ' '.join(['{' + p + '}' for p in self.optParams]),
                                               'No description available' if self.cb.__doc__ is None else self.cb.__doc__.splitlines()[0])
 
 
@@ -147,18 +145,11 @@ class CommandsHandler:
                 return command
         return None
 
-    def _validate_command(self, client, message):
-        split = message.content.split()
-        if split[0] == commandTrigger or client.user in message.mentions:
-            return self.find(split[1])
-        return None
-
     def register(self, **attributes):
         def decorator(func):
             async def wrapper(client, message, **postCommand):
-                # choose only those that are most likely arguments (could be
-                # Account...)
-                args = ' '.join([v for v in postCommand.values() if isinstance(v, str)])
+                # choose only those that are most likely arguments but not the api key (could be Account...)
+                args = ' '.join([v for k, v in postCommand.items() if isinstance(v, str) and k != 'key'])
                 # server for profiling info
                 server = 0 if message.channel.is_private else message.channel.server.id
                 with Profiler(Scope.Command, name=func.__name__, args=args, server=server) as p:
@@ -171,8 +162,12 @@ class CommandsHandler:
         split = message.content.split()
 
         if message.channel.is_private:
-            command = self.find(split[0])
-            offset = 1
+            if split[0] == commandTrigger:
+                command = self.find(split[1])
+                offset = 2
+            else:
+                command = self.find(split[0])
+                offset = 1
         elif split[0] == commandTrigger or client.user in message.mentions:
             command = self.find(split[1])
             offset = 2

@@ -91,8 +91,7 @@ async def on_server_join(server):
 
 @client.event
 async def on_server_remove(server):
-    print(T_Log_RemovedServer.format(server.name,
-                                     server.id, server.owner.name, server.owner.id))
+    print(T_Log_RemovedServer.format(server.name, server.id, server.owner.name, server.owner.id))
     await cleanup_removed_server(server.id)
 
 
@@ -101,20 +100,15 @@ async def on_member_update_impl(before, after):
     if before != before.server.me:
         return
 
-    statusChange = '/' if before.status == after.status else '{}->{}'.format(
-        before.status, after.status)
-    gameChange = '/' if before.game == after.game else '{}->{}'.format(
-        before.game.name, after.game.name)
-    avatarChange = '/' if before.avatar_url == after.avatar_url else '{}->{}'.format(
-        before.avatar_url, after.avatar_url)
-    nickchange = '/' if before.nick == after.nick else '{}->{}'.format(
-        before.nick, after.nick)
+    statusChange = '/' if before.status == after.status else '{}->{}'.format(before.status, after.status)
+    gameChange = '/' if before.game == after.game else '{}->{}'.format(before.game.name, after.game.name)
+    avatarChange = '/' if before.avatar_url == after.avatar_url else '{}->{}'.format(before.avatar_url, after.avatar_url)
+    nickchange = '/' if before.nick == after.nick else '{}->{}'.format(before.nick, after.nick)
 
     if before.roles != after.roles:
         deleted = [x.name for x in before.roles if x not in after.roles]
         added = [x.name for x in after.roles if x not in before.roles]
-        rolesChange = ' -{}'.format(' -'.join(deleted)) if len(
-            deleted) > 0 else '' + ' +{}'.format(' +'.join(added)) if len(added) > 0 else ''
+        rolesChange = ' -{}'.format(' -'.join(deleted)) if len(deleted) > 0 else '' + ' +{}'.format(' +'.join(added)) if len(added) > 0 else ''
     else:
         rolesChange = '/'
     print('on_member_update [Status {}] [Game {}] [Avatar {}] [Nick {}] [Roles{}]'.format(
