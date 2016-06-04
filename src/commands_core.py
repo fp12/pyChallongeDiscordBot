@@ -5,7 +5,7 @@ from c_users import users_db, ChallongeAccess, UserNotFound, UserNameNotSet, API
 import discord
 from const import *
 import utils
-from profiling import Profiler, Scope
+from profiling import Profiler, Scope, profile, profile_async
 
 commandTrigger = '>>>'
 commandFormat = '| {0:17}| {1:16}| {2:13}| {3:11}| {4:20}| {5:20}| {6:20}|'
@@ -62,6 +62,7 @@ class Command:
         self.helpers = args
         return self
 
+    @profile(Scope.Core)
     def validate_context(self, client, message, postCommand):
         authorPerms = get_permissions(message.author, message.channel)
         if authorPerms >= self.attributes.minPermissions:
@@ -88,6 +89,7 @@ class Command:
             return name in self.aliases
         return False
 
+    @profile(Scope.Core)
     def _fetch_helpers(self, message):
         kwargs = {}
         for x in self.helpers:
@@ -97,14 +99,18 @@ class Command:
                 kwargs[x] = servers_db.get_tournament_id(message.channel)
             elif x == 'tournament_role':
                 roleid = servers_db.get_tournament_role(message.channel)
-                kwargs[x] = discord.utils.find(lambda r: r.id == roleid, message.channel.server.roles)
+                kwargs[x] = discord.utils.find(lambda r: r.id == roleid, message.server.roles)
+            elif x == 'tournament_channel':
+                channelid = servers_db.get_tournament_channel(message.channel)
+                kwargs[x] = discord.utils.find(lambda c: c.id == channelid, message.server.channels)
             elif x == 'participant_username':
                 participant = users_db.get_user(message.author.id)
-                if participant is not None:
+                if participant:
                     kwargs[x] = participant.challongeUserName
 
         return kwargs
 
+    @profile_async(Scope.Core)
     async def execute(self, client, message, postCommand):
         kwargs = {}
 
@@ -139,6 +145,7 @@ class CommandsHandler:
         self._commands.append(command)
         return command
 
+    @profile(Scope.Core)
     def find(self, name):
         for command in self._commands:
             if command.validate_name(name):
@@ -158,6 +165,7 @@ class CommandsHandler:
             return self._add(Command(func.__name__, wrapper, Attributes(**attributes)))
         return decorator
 
+    @profile_async(Scope.Core)
     async def try_execute(self, client, message):
         split = message.content.split()
 
@@ -205,8 +213,7 @@ class CommandsHandler:
 
     def dump(self):
         return utils.print_array('Commands registered',
-                                 commandFormat.format(
-                                     'Name', 'Min Permissions', 'Channel Type', 'Challonge', 'Aliases', 'Required Args', 'Optional Args'),
+                                 commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Challonge', 'Aliases', 'Required Args', 'Optional Args'),
                                  self._commands,
                                  lambda c: commandFormat.format(c.name,
                                                                 c.attributes.minPermissions.name,

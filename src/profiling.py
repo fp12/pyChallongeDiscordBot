@@ -33,13 +33,11 @@ class ProfilerCollector():
     def dump(self):
         return '\n'.join([
             utils.print_array('Profiling Core stats',
-                              self.coreFormatHeader.format(
-                                  'Start', 'Name', 'Time'),
+                              self.coreFormatHeader.format('Start', 'Name', 'Time'),
                               self._stats,
                               self._print_core),
             utils.print_array('Profiling Command stats',
-                              self.commandFormatHeader.format(
-                                  'Start', 'Name', 'Args', 'Time', 'Server'),
+                              self.commandFormatHeader.format('Start', 'Name', 'Args', 'Time', 'Server'),
                               self._stats,
                               self._print_command)])
 
@@ -58,8 +56,7 @@ class Profiler():
 
     def __exit__(self, *args):
         end = time.time()
-        collector.log(self._scope, self._start,
-                      (end - self._start) * 1000, **self._args)
+        collector.log(self._scope, self._start, (end - self._start) * 1000, **self._args)
 
 
 def profile(scope, **profilingArgs):

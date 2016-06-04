@@ -135,6 +135,9 @@ class ServersDB:
     def get_tournament_role(self, channel):
         return self._get_tournament_info(channel, 'role')
 
+    def get_tournament_channel(self, channel):
+        return self._get_tournament_info(channel, 'channel')
+
 
 servers_db = ServersDB()
 

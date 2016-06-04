@@ -37,7 +37,7 @@ def get_permissions(user, channel):
     if not channel.is_private:
         alltourneysInServer = [s['tournaments'] for s in servers_db if s['id'] == channel.server.id and s['tournaments']]
         if alltourneysInServer:
-            tourneyRole = [t['role'] for t in alltourneysInServer if t['channel'] == channel.id]
+            tourneyRole = [t['role'] for t in alltourneysInServer[0] if t['channel'] == channel.id]
             if len(tourneyRole) == 1:
                 memberInServer = [m for m in channel.server.members if m.id == user.id][0]
                 if len([r for r in memberInServer.roles if r.id == tourneyRole]) > 0:

@@ -1,3 +1,5 @@
+import re
+
 def print_array(title, header, iterable, func):
     vertSep = '|'
     arraySep = '='
@@ -42,3 +44,11 @@ def paginate(dump, max_per_page=2000):
             else:
                 len_count += len(line)
     return paginated
+
+
+def get_user_id_from_mention(mention):
+    regexRes = re.findall(r'<@!?([0-9]+)>', mention)
+    if len(regexRes) == 1:
+        return regexRes[0]
+    else:
+        return 0

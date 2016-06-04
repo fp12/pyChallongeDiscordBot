@@ -84,10 +84,11 @@ async def promote(client, message, **kwargs):
     """Promote a member to be able to manage tournaments with you
     You can also simply assign the member the role 'Challonge'
     Arguments:
-    member -- the member to be granted management rights
+    member -- mention (@) the member to be granted management rights
     """
-    member = message.channel.server.get_member_named(kwargs.get('member'))
-    if member is not None:
+    member_id = utils.get_user_id_from_mention(kwargs.get('member'))
+    member = message.channel.server.get_member(member_id)
+    if member:
         for r in message.channel.server.me.roles:
             if r.name == C_RoleName:
                 try:
@@ -109,9 +110,10 @@ async def demote(client, message, **kwargs):
     """Demote a member to be able to manage tournaments with you
     You can also simply unassign the member the role 'Challonge'
     Arguments:
-    member -- the member to be removed management rights
+    member -- mention (@) the member to be removed management rights
     """
-    member = message.channel.server.get_member_named(kwargs.get('member'))
+    member_id = utils.get_user_id_from_mention(kwargs.get('member'))
+    member = message.channel.server.get_member(member_id)
     if member:
         for r in message.channel.server.me.roles:
             if r.name == C_RoleName:
@@ -162,9 +164,10 @@ async def create(client, message, **kwargs):
     subdomain -- a valid Challonge organization http://subdomain.challonge.com/url
     """
     # Validate name
-    if len(kwargs.get('name')) > 60:
-        await client.send_message(message.channel, '❌ Invalid name {}. Please use less than 60 characters and no spaces'.format(kwargs.get('name')))
-        return
+    with Profiler(Scope.Core, name='create_') as p: 
+        if len(kwargs.get('name')) > 60:
+            await client.send_message(message.channel, '❌ Invalid name. Please use less than 60 characters and no spaces')
+            return
     # Validate url
     diff = set(kwargs.get('url')) - set(string.ascii_letters + string.digits + '_')
     if diff:
@@ -329,13 +332,15 @@ async def destroy(client, message, **kwargs):
     No Arguments
     """
     try:
+        t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'))
         await kwargs.get('account').tournaments.destroy(kwargs.get('tournament_id'))
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
         await client.delete_role(message.channel.server, kwargs.get('tournament_role'))
         await client.delete_channel(message.channel)
-        await client.send_message(message.author, '✅ Tournament {0} has been destroyed!'.format('name'))
+        channelId = servers_db.get_management_channel(message.server)
+        await client.send_message(discord.Channel(server=message.server, id=channelId), '✅ Tournament {0} has been destroyed by {1}!'.format(t['name'], message.author.mention))
         servers_db.remove_tournament(message.channel.server, kwargs.get('tournament_id'))
 
 
@@ -358,11 +363,8 @@ async def update(client, message, **kwargs):
         await client.send_message(message.channel, '❌ Invalid score format. Please use the following 5-0,4-5,5-3')
         return
     # Verify other member: mention first, then name, then nick
-    opponentId = 0
-    regexRes = re.findall(r'<@!?([0-9]+)>', kwargs.get('opponent'))
-    if len(regexRes) == 1:
-        opponentId = regexRes[0]
-    else:
+    opponentId = utils.get_user_id_from_mention(kwargs.get('opponent'))
+    if opponentId == 0:
         member = message.channel.server.get_member_named(
             kwargs.get('opponent'))
         if member:
