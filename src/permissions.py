@@ -40,7 +40,7 @@ def get_permissions(user, channel):
             tourneyRole = [t['role'] for t in alltourneysInServer[0] if t['channel'] == channel.id]
             if len(tourneyRole) == 1:
                 memberInServer = [m for m in channel.server.members if m.id == user.id][0]
-                if len([r for r in memberInServer.roles if r.id == tourneyRole]) > 0:
+                if len([r for r in memberInServer.roles if r.id == tourneyRole[0]]) > 0:
                     return Permissions.Participant
     
     return Permissions.User

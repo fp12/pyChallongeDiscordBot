@@ -70,7 +70,7 @@ async def organization(client, message, **kwargs):
     Optional Argument:
     organization -- if not set, it will be reset for this server
     """
-    servers_db.edit(message.channel.server, **kwargs)
+    servers_db.edit(message.server, **kwargs)
     organization = kwargs.get('organization')
     if organization is None:
         await client.send_message(message.channel, '✅ Organization has been reset for this server')
@@ -87,19 +87,19 @@ async def promote(client, message, **kwargs):
     member -- mention (@) the member to be granted management rights
     """
     member_id = utils.get_user_id_from_mention(kwargs.get('member'))
-    member = message.channel.server.get_member(member_id)
+    member = message.server.get_member(member_id)
     if member:
-        for r in message.channel.server.me.roles:
+        for r in message.server.me.roles:
             if r.name == C_RoleName:
                 try:
                     await client.add_roles(member, r)
                     await client.send_message(message.channel, '✅ Member **{0.name}** has been promoted'.format(member))
                 except discord.errors.Forbidden:
-                    await client.send_message(message.channel, T_PromoteError.format(member, message.channel.server.owner.mention))
+                    await client.send_message(message.channel, T_PromoteError.format(member, message.server.owner.mention))
                 finally:
                     return
         print('command:promote could not find \'{}\' Role? roles: {}'.format(
-            C_RoleName, ' '.join([r.name for r in message.channel.server.me.roles])))
+            C_RoleName, ' '.join([r.name for r in message.server.me.roles])))
     else:
         await client.send_message(message.channel, '❌ Could not find Member **{}**'.format(kwargs.get('member')))
 
@@ -113,18 +113,18 @@ async def demote(client, message, **kwargs):
     member -- mention (@) the member to be removed management rights
     """
     member_id = utils.get_user_id_from_mention(kwargs.get('member'))
-    member = message.channel.server.get_member(member_id)
+    member = message.server.get_member(member_id)
     if member:
-        for r in message.channel.server.me.roles:
+        for r in message.server.me.roles:
             if r.name == C_RoleName:
                 try:
                     await client.remove_roles(member, r)
                     await client.send_message(message.channel, '✅ Member **{0.name}** has been demoted'.format(member))
                 except discord.errors.Forbidden:
-                    await client.send_message(message.channel, T_DemoteError.format(member, message.channel.server.owner.mention))
+                    await client.send_message(message.channel, T_DemoteError.format(member, message.server.owner.mention))
                 finally:
                     return
-        print('command:promote could not find \'{}\' Role? roles: {}'.format(C_RoleName, ' '.join([r.name for r in message.channel.server.me.roles])))
+        print('command:promote could not find \'{}\' Role? roles: {}'.format(C_RoleName, ' '.join([r.name for r in message.server.me.roles])))
     else:
         await client.send_message(message.channel, '❌ Could not find Member **{}**'.format(kwargs.get('member')))
 
@@ -134,15 +134,15 @@ async def leaveserver(client, message, **kwargs):
     """Kick the Challonge bot out of your server
     Using this command, the bot will also remove the management channel it created
     """
-    channelId = servers_db.get_management_channel(message.channel.server)
-    await client.delete_channel(discord.Channel(server=message.channel.server, id=channelId))
-    roles = [x for x in message.channel.server.me.roles if x.name == C_RoleName]
+    channelId = servers_db.get_management_channel(message.server)
+    await client.delete_channel(discord.Channel(server=message.server, id=channelId))
+    roles = [x for x in message.server.me.roles if x.name == C_RoleName]
     if len(roles) == 1:
         try:
-            await client.delete_role(message.channel.server, roles[0])
+            await client.delete_role(message.server, roles[0])
         except discord.errors.Forbidden:
-            await client.send_message(message.channel.server.owner, T_RemoveChallongeRoleError)
-    await client.leave_server(message.channel.server)
+            await client.send_message(message.server.owner, T_RemoveChallongeRoleError)
+    await client.leave_server(message.server)
 
 
 # ORGANIZER
@@ -185,18 +185,18 @@ async def create(client, message, **kwargs):
     params = {}
     if kwargs.get('subdomain', None):
         params['subdomain'] = kwargs.get('subdomain')
-    elif servers_db.get_organization(message.channel.server):
+    elif servers_db.get_organization(message.server):
         params['subdomain'] = servers_db.get_organization(
-            message.channel.server)
+            message.server)
 
     try:
         t = await kwargs.get('account').tournaments.create(kwargs.get('name'), kwargs.get('url'), tournament_type, **params)
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        role = await client.create_role(message.channel.server, name='Participant_' + kwargs.get('name'), mentionable=True)
-        chChannel = await client.create_channel(message.channel.server, 'T_' + kwargs.get('name'))
-        servers_db.add_tournament(message.channel.server, channel=chChannel.id, role=role.id, challongeid=t['id'])
+        role = await client.create_role(message.server, name='Participant_' + kwargs.get('name'), mentionable=True)
+        chChannel = await client.create_channel(message.server, 'T_' + kwargs.get('name'))
+        servers_db.add_tournament(message.server, channel=chChannel.id, role=role.id, challongeid=t['id'])
         await client.send_message(message.channel, T_TournamentCreated.format(kwargs.get('name'),
                                                                               t['full-challonge-url'],
                                                                               role.mention,
@@ -222,7 +222,7 @@ async def shuffleseeds(client, message, **kwargs):
         # TODO: display list of new players seeds
 
 
-@helpers('account', 'tournament_id')
+@helpers('account', 'tournament_id', 'tournament_role')
 @aliases('launch')
 @commands.register(minPermissions=Permissions.Organizer,
                    channelRestrictions=ChannelType.Tournament,
@@ -237,9 +237,18 @@ async def start(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
+        allow = discord.Permissions.none()
+        allow.send_messages = True
+        await client.edit_channel_permissions(message.channel, kwargs.get('tournament_role'), allow=allow)
+
+        for r in message.server.me.roles:
+            if r.name == C_RoleName:
+                await client.edit_channel_permissions(message.channel, r, allow=allow)
+
         deny = discord.Permissions.none()
         deny.send_messages = True
-        await client.edit_channel_permissions(message.channel, message.channel.server.default_role, deny=deny)
+        await client.edit_channel_permissions(message.channel, message.server.default_role, deny=deny)
+
         await client.send_message(message.channel, '✅ Tournament is now started!')
         # TODO real text (with games to play...)
         # Discord won't display SVGs yet, so have a look at:
@@ -317,7 +326,7 @@ async def finalize(client, message, **kwargs):
     else:
         # let's remove the role associated to this tournament.
         # only the Challonge role will be able to write in it
-        await client.delete_role(message.channel.server, kwargs.get('tournament_role'))
+        await client.delete_role(message.server, kwargs.get('tournament_role'))
         await client.send_message(message.channel, '✅ Tournament has been finalized!')
         # TODO real text ?
 
@@ -337,11 +346,12 @@ async def destroy(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        await client.delete_role(message.channel.server, kwargs.get('tournament_role'))
+        if kwargs.get('tournament_role'):  # tournament role may have been deleted by finalize before
+            await client.delete_role(message.server, kwargs.get('tournament_role'))
         await client.delete_channel(message.channel)
         channelId = servers_db.get_management_channel(message.server)
         await client.send_message(discord.Channel(server=message.server, id=channelId), '✅ Tournament {0} has been destroyed by {1}!'.format(t['name'], message.author.mention))
-        servers_db.remove_tournament(message.channel.server, kwargs.get('tournament_id'))
+        servers_db.remove_tournament(message.server, kwargs.get('tournament_id'))
 
 
 # PARTICIPANT
@@ -365,12 +375,12 @@ async def update(client, message, **kwargs):
     # Verify other member: mention first, then name, then nick
     opponentId = utils.get_user_id_from_mention(kwargs.get('opponent'))
     if opponentId == 0:
-        member = message.channel.server.get_member_named(
+        member = message.server.get_member_named(
             kwargs.get('opponent'))
         if member:
             opponentId = member.id
 
-    member = discord.utils.get(message.channel.members, id=opponentId)
+    member = discord.utils.get(message.server.members, id=opponentId)
     if member is None:
         await client.send_message(message.channel, '❌ I could not find your opponent on this server')
         return
@@ -394,21 +404,26 @@ async def update(client, message, **kwargs):
             return
         else:
             try:
-                openMatches = kwargs.get('account').matches.index(kwargs.get('tournament_id'), state='open', participant_id=authorId)
+                openMatches = await kwargs.get('account').matches.index(kwargs.get('tournament_id'), state='open', participant_id=authorId)
             except ChallongeException as e:
                 await client.send_message(message.author, T_OnChallongeException.format(e))
             else:
                 for m in openMatches:
-                    if m['player1_id'] == authorId and m['player2_id'] == opponentId or\
-                            m['player2_id'] == authorId and m['player1_id'] == opponentId:
+                    if m['player1-id'] == authorId and m['player2-id'] == opponentId or\
+                            m['player2-id'] == authorId and m['player1-id'] == opponentId:
                         winner_id = authorId if challonge_utils.author_is_winner(kwargs.get('score')) else opponentId
+                        score = kwargs.get('score') if m['player1-id'] == authorId else challonge_utils.reverse_score(kwargs.get('score'))
                         try:
-                            kwargs.get('account').matches.update(kwargs.get('tournament_id'), m['id'], scores_csv=kwargs.get('score'), winner_id=winner_id)
+                            await kwargs.get('account').matches.update(kwargs.get('tournament_id'), m['id'], scores_csv=score, winner_id=winner_id)
                         except ChallongeException as e:
                             await client.send_message(message.author, T_OnChallongeException.format(e))
+                            return
                         else:
-                            await client.send_message(message.channel, '✅ Your results have been uploaded.')
+                            await client.send_message(message.channel, '✅ Your results have been uploaded')
                             # TODO: print next games for both players
+                            return
+                await client.send_message(message.channel, '❌ Your current opponent is not ' + member.name)
+                            
 
 
 @helpers('account', 'tournament_id', 'participant_name', 'tournament_role')
@@ -539,7 +554,7 @@ async def join(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        client.add_roles(message.author, kwargs.get('tournament_role'))
+        await client.add_roles(message.author, kwargs.get('tournament_role'))
         await client.send_message(message.channel, '✅ You have successfully joined the tournament')
         # TODO more info
 

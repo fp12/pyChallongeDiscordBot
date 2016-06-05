@@ -101,6 +101,13 @@ class ServersDB:
                         self._save()
                         return
 
+    def remove_all_tournaments(self, server):
+        for x in self._db:
+            if x['id'] == server.id:
+                x['tournaments'] = []
+                self._save()
+                return
+
     def get_owner_id(self, server):
         for x in self._db:
             if x['id'] == server.id:
