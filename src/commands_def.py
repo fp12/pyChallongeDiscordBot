@@ -11,6 +11,12 @@ import challonge_utils
 from challonge import Account, ChallongeException
 import string
 import re
+import cloudconvert
+from config import appConfig
+import os
+
+cloudconvertapi = cloudconvert.Api(appConfig['cloudconvert'])
+
 
 # DEV ONLY
 
@@ -251,8 +257,20 @@ async def start(client, message, **kwargs):
 
         await client.send_message(message.channel, '✅ Tournament is now started!')
         # TODO real text (with games to play...)
-        # Discord won't display SVGs yet, so have a look at:
-        # https://cloudconvert.com/api/svgtopng
+        t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'))
+        process = cloudconvertapi.convert({
+            "inputformat": "svg",
+            "outputformat": "png",
+            "input": "download",
+            "file": t['live-image-url']
+        })
+        process.wait()
+        process.download(localfile='data/temp.png')
+        await client.send_file(message.channel, 'data/temp.png')
+        try:
+            os.remove('data/temp.png')
+        except OSError as e:
+            print ("Error: %s - %s." % (e.filename,e.strerror))
 
 
 @helpers('account', 'tournament_id')
