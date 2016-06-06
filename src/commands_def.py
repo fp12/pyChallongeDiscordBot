@@ -7,15 +7,21 @@ from commands_core import *
 from permissions import Permissions
 from profiling import collector
 from utils import *
-import challonge_utils
+from challonge_utils import *
 from challonge import Account, ChallongeException
 import string
-import re
 import cloudconvert
 from config import appConfig
 import os
 
 cloudconvertapi = cloudconvert.Api(appConfig['cloudconvert'])
+
+def get_member(name, message):
+    member_id = utils.get_user_id_from_mention(name)
+    if member_id == 0:
+        return server.get_member_named(name)
+    else:
+        return discord.utils.get(server.members, id=member_id)
 
 
 # DEV ONLY
@@ -169,11 +175,10 @@ async def create(client, message, **kwargs):
     Optional Arguments:
     subdomain -- a valid Challonge organization http://subdomain.challonge.com/url
     """
-    # Validate name
-    with Profiler(Scope.Core, name='create_') as p: 
-        if len(kwargs.get('name')) > 60:
-            await client.send_message(message.channel, '❌ Invalid name. Please use less than 60 characters and no spaces')
-            return
+    # Validate name 
+    if len(kwargs.get('name')) > 60:
+        await client.send_message(message.channel, '❌ Invalid name. Please use less than 60 characters and no spaces')
+        return
     # Validate url
     diff = set(kwargs.get('url')) - set(string.ascii_letters + string.digits + '_')
     if diff:
@@ -183,10 +188,14 @@ async def create(client, message, **kwargs):
     if kwargs.get('type') not in ['singleelim', 'doubleelim', 'roundrobin', 'swiss']:
         await client.send_message(message.channel, '❌ Invalid tournament type {}. Please choose from singleelim, doubleelim, roundrobin or swiss'.format(kwargs.get('type')))
         return
-    tournament_type = 'single elimination' if kwargs.get('type') == 'singleelim'\
-        else 'double elimination' if kwargs.get('type') == 'doubleelim'\
-        else 'round robin' if kwargs.get('type') == 'roundrobin'\
-        else 'swiss'
+    if kwargs.get('type') == 'singleelim':
+        tournament_type = 'single elimination'
+    elif kwargs.get('type') == 'doubleelim':
+        tournament_type = 'double elimination'
+    elif kwargs.get('type') == 'roundrobin':
+        tournament_type = 'round robin'
+    else:
+        tournament_type = 'swiss'
 
     params = {}
     if kwargs.get('subdomain', None):
@@ -255,9 +264,11 @@ async def start(client, message, **kwargs):
         deny.send_messages = True
         await client.edit_channel_permissions(message.channel, message.server.default_role, deny=deny)
 
+        t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'))
+        
         await client.send_message(message.channel, '✅ Tournament is now started!')
         # TODO real text (with games to play...)
-        t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'))
+        
         process = cloudconvertapi.convert({
             "inputformat": "svg",
             "outputformat": "png",
@@ -372,7 +383,72 @@ async def destroy(client, message, **kwargs):
         servers_db.remove_tournament(message.server, kwargs.get('tournament_id'))
 
 
+@helpers('account', 'tournament_id',)
+@required_args('p1', 'score', 'p2')
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def updatex(client, message, **kwargs):
+    """Report a match score
+    Required Arguments:
+    p1 -- Player 1 name or nickname or mention (mention is safer)
+    score -- [YourScore]-[OpponentScore] : 5-0. Can be comma separated: 5-0,4-5,5-3
+    p2 -- Player 2 name or nickname or mention (mention is safer)
+    """
+    # Verify score format
+    if not verify_score_format(kwargs.get('score')):
+        await client.send_message(message.channel, '❌ Invalid score format. Please use the following 5-0,4-5,5-3')
+        return
+
+    # Verify first player: mention first, then name, then nick
+    p1_as_member, exc = get_member(kwargs.get('p1'), message.server)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
+    elif not p1_as_member:
+        await client.send_message(message.channel, '❌ I could not find player 1 on this server')
+        return
+
+    # Verify second player: mention first, then name, then nick
+    p2_as_member, exc = get_member(kwargs.get('p2'), message.server)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
+    elif not p2_as_member:
+        await client.send_message(message.channel, '❌ I could not find player 2 on this server')
+        return
+
+    p1_id, p2_id, exc = await get_players(kwargs.get('account'), kwargs.get('tournament_id'), p1_as_member.name, p2_as_member.name)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
+    elif not p1_id:
+        await client.send_message(message.channel, '❌ I could not find player 1 in this tournament')
+        return
+    elif not p2_id:
+        await client.send_message(message.channel, '❌ I could not find player 2 in this tournament')
+        return
+
+    match, is_reversed, exc = await get_match(kwargs.get('account'), kwargs.get('tournament_id'), p1_id, p2_id)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
+    elif not match:
+        await client.send_message(message.channel, '❌ No open match found for these players')
+        return
+
+    winner_id = p1_id if author_is_winner(kwargs.get('score')) else p2_id
+    score = kwargs.get('score') if not is_reversed else reverse_score(kwargs.get('score'))
+    msg, exc = await update_score(kwargs.get('account'), kwargs.get('tournament_id'), match['id'], score, winner_id)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
+    else:
+        await client.send_message(message.channel, msg)
+        
+
 # PARTICIPANT
+
 
 @helpers('account', 'tournament_id', 'participant_name')
 @required_args('score', 'opponent')
@@ -383,68 +459,49 @@ async def update(client, message, **kwargs):
     """Report your score against another participant
     Required Arguments:
     score -- [YourScore]-[OpponentScore] : 5-0. Can be comma separated: 5-0,4-5,5-3
-    opponent --Your opponnent name or nickname or mention (mention is safer)
+    opponent -- Your opponnent name or nickname or mention (mention is safer)
     """
     # Verify score format
-    result = re.compile('(\d+-\d+)(,\d+-\d+)*')
-    if not result.match(kwargs.get('score')):
+    if not verify_score_format(kwargs.get('score')):
         await client.send_message(message.channel, '❌ Invalid score format. Please use the following 5-0,4-5,5-3')
         return
-    # Verify other member: mention first, then name, then nick
-    opponentId = utils.get_user_id_from_mention(kwargs.get('opponent'))
-    if opponentId == 0:
-        member = message.server.get_member_named(
-            kwargs.get('opponent'))
-        if member:
-            opponentId = member.id
 
-    member = discord.utils.get(message.server.members, id=opponentId)
-    if member is None:
+    # Verify other member: mention first, then name, then nick
+    opponent_as_member = get_member(kwargs.get('opponent'), message.server)
+    if not opponent_as_member:
         await client.send_message(message.channel, '❌ I could not find your opponent on this server')
         return
 
-    # Process
-    try:
-        participants = await kwargs.get('account').participants.index(kwargs.get('tournament_id'))
-    except ChallongeException as e:
-        await client.send_message(message.author, T_OnChallongeException.format(e))
+    p1_id, p2_id, exc = await get_players(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name, opponent_as_member.name)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
+    elif not p1_id:
+        await client.send_message(message.channel, '❌ I could not find you in this tournament')
+        return
+    elif not p2_id:
+        await client.send_message(message.channel, '❌ I could not find your opponent in this tournament')
+        return
+
+    match, is_reversed, exc = await get_match(kwargs.get('account'), kwargs.get('tournament_id'), p1_id, p2_id)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
+    elif not match:
+        await client.send_message(message.channel, '❌ Your current opponent is not ' + opponent_as_member.name)
+        return
+
+    winner_id = p1_id if author_is_winner(kwargs.get('score')) else p2_id
+    score = kwargs.get('score') if not is_reversed else reverse_score(kwargs.get('score'))
+    msg, exc = await update_score(kwargs.get('account'), kwargs.get('tournament_id'), match['id'], score, winner_id)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
     else:
-        for x in participants:
-            if x['name'] == member.name:
-                opponentId = x['id']
-            elif x['name'] == message.author.name:
-                authorId = x['id']
-        if not authorId:
-            await client.send_message(message.channel, '❌ I could not find you in this tournament')
-            return
-        elif not opponentId:
-            await client.send_message(message.channel, '❌ I could not find your opponent in this tournament')
-            return
-        else:
-            try:
-                openMatches = await kwargs.get('account').matches.index(kwargs.get('tournament_id'), state='open', participant_id=authorId)
-            except ChallongeException as e:
-                await client.send_message(message.author, T_OnChallongeException.format(e))
-            else:
-                for m in openMatches:
-                    if m['player1-id'] == authorId and m['player2-id'] == opponentId or\
-                            m['player2-id'] == authorId and m['player1-id'] == opponentId:
-                        winner_id = authorId if challonge_utils.author_is_winner(kwargs.get('score')) else opponentId
-                        score = kwargs.get('score') if m['player1-id'] == authorId else challonge_utils.reverse_score(kwargs.get('score'))
-                        try:
-                            await kwargs.get('account').matches.update(kwargs.get('tournament_id'), m['id'], scores_csv=score, winner_id=winner_id)
-                        except ChallongeException as e:
-                            await client.send_message(message.author, T_OnChallongeException.format(e))
-                            return
-                        else:
-                            await client.send_message(message.channel, '✅ Your results have been uploaded')
-                            # TODO: print next games for both players
-                            return
-                await client.send_message(message.channel, '❌ Your current opponent is not ' + member.name)
-                            
+        await client.send_message(message.channel, msg)
 
 
-@helpers('account', 'tournament_id', 'participant_name', 'tournament_role')
+@helpers('account', 'tournament_id', 'tournament_role')
 @commands.register(minPermissions=Permissions.Participant,
                    channelRestrictions=ChannelType.Tournament,
                    challongeAccess=ChallongeAccess.Required)
@@ -455,17 +512,17 @@ async def forfeit(client, message, **kwargs):
     and you won't be able to write in this channel anymore
     No Arguments
     """
-    try:
-        participants = await kwargs.get('account').participants.index(kwargs.get('tournament_id'))
-        for x in participants:
-            if x['name'] == message.author.name:
-                await kwargs.get('account').participants.destroy(kwargs.get('tournament_id'), x['id'])
-                break
-    except ChallongeException as e:
-        await client.send_message(message.author, T_OnChallongeException.format(e))
-    else:
-        await client.remove_roles(message.author, kwargs.get('tournament_role'))
-        await client.send_message(message.channel, '✅ You forfeited from this tournament')
+    author_id, exc = get_player(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
+    elif author_id:
+        try:
+            await kwargs.get('account').participants.destroy(kwargs.get('tournament_id'), author_id)
+        except ChallongeException as e:
+            await client.send_message(message.author, T_OnChallongeException.format(e))
+    await client.remove_roles(message.author, kwargs.get('tournament_role'))
+    await client.send_message(message.channel, '✅ You forfeited from this tournament')
 
 
 @helpers('account', 'tournament_id', 'participant_name')
@@ -473,7 +530,42 @@ async def forfeit(client, message, **kwargs):
                    channelRestrictions=ChannelType.Tournament,
                    challongeAccess=ChallongeAccess.Required)
 async def next(client, message, **kwargs):
-    await client.send_message(message.channel, 'next')
+    """Get information about your next game
+    No Arguments
+    """
+    author_id, exc = get_player(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
+    elif author_id:
+        try:
+            openMatches = await kwargs.get('account').matches.index(kwargs.get('tournament_id'), state='open', participant_id=author_id)
+        except ChallongeException as e:
+            await client.send_message(message.author, T_OnChallongeException.format(e))
+        else:
+            if len(openMatches) > 0:
+                if openMatches[0]['player1-id'] == author_id:
+                    opponent_id = openMatches[0]['player2-id']
+                else:
+                    opponent_id = openMatches[0]['player1-id']
+
+                try:
+                    opponent = await kwargs.get('account').participants.show(kwargs.get('tournament_id'), opponent_id)
+                except ChallongeException as e:
+                    await client.send_message(message.author, T_OnChallongeException.format(e))
+                else:
+                    await client.send_message(message.channel, '✅ You have an open match 🆚 {0}'.format(opponent['name']))
+            else:
+                try:
+                    pendingMatches = await kwargs.get('account').matches.index(kwargs.get('tournament_id'), state='pending', participant_id=author_id)
+                except ChallongeException as e:
+                    await client.send_message(message.author, T_OnChallongeException.format(e))
+                else:
+                    if len(openMatches) > 0:
+                        await client.send_message(message.channel, '✅ You have a pending match. Please wait for it to open')
+                    else:
+                        await client.send_message(message.channel, '✅ You have no pending nor open match. It seems you\'re out of the tournament')
+                    # TODO: better management of names
 
 
 @helpers('account', 'tournament_id')
