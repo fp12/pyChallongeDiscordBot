@@ -13,6 +13,7 @@ import string
 import cloudconvert
 from config import appConfig
 import os
+import datetime
 
 cloudconvertapi = cloudconvert.Api(appConfig['cloudconvert'])
 
@@ -59,6 +60,11 @@ async def dump(client, message, **kwargs):
 
 # SERVER OWNER
 
+@commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Any)
+async def ping(client, message, **kwargs):
+    timeSpent = datetime.datetime.now() - message.timestamp + datetime.timedelta(hours=4) # uct correction
+    await client.send_message(message.channel, '✅ pong! `{0:.3f}`s'.format(timeSpent.total_seconds()))
+
 @required_args('key')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Private)
 async def key(client, message, **kwargs):
@@ -84,11 +90,11 @@ async def organization(client, message, **kwargs):
     """
     servers_db.edit(message.server, **kwargs)
     organization = kwargs.get('organization')
-    if organization is None:
-        await client.send_message(message.channel, '✅ Organization has been reset for this server')
-    else:
+    if organization:
         await client.send_message(message.channel, '✅ Organization **{0}** has been set for this server'.format(organization))
-
+    else:
+        await client.send_message(message.channel, '✅ Organization has been reset for this server')
+        
 
 @required_args('member')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
