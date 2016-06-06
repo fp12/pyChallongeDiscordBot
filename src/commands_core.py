@@ -1,7 +1,7 @@
 import asyncio
 from permissions import Permissions, get_permissions
 from channel_type import ChannelType, get_channel_type
-from c_users import users_db, ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet
+from challonge_accounts import ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet, get as get_account
 from db_access import db
 import discord
 from const import *
@@ -71,7 +71,7 @@ class Command:
                 givenParams = len(postCommand)
                 if givenParams >= reqParamsExpected:
                     if self.attributes.challongeAccess == ChallongeAccess.Required:
-                        acc = users_db.get_account(message.server)  # can raise
+                        acc = get_account(message.server)  # can raise
                 else:
                     raise ContextValidationError_MissingParameters(
                         reqParamsExpected, givenParams)
@@ -92,7 +92,7 @@ class Command:
         kwargs = {}
         for x in self.helpers:
             if x == 'account':
-                kwargs[x] = users_db.get_account(message.server)
+                kwargs[x] = get_account(message.server)
             elif x == 'tournament_id':
                 kwargs[x] = db.get_tournament(message.channel).challonge_id
             elif x == 'tournament_role':
@@ -102,9 +102,7 @@ class Command:
                 channelid = db.get_tournament(message.channel).channel_id
                 kwargs[x] = discord.utils.find(lambda c: c.id == channelid, message.server.channels)
             elif x == 'participant_username':
-                participant = users_db.get_user(message.author.id)
-                if participant:
-                    kwargs[x] = participant.challongeUserName
+                kwargs[x] = db.get_user(message.author).user_name
 
         return kwargs
 

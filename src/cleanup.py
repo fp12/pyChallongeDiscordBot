@@ -1,8 +1,8 @@
 import discord
 from config import appConfig
 import challonge
-from c_users import users_db
 from db_access import db
+import challonge_accounts
 
 client = discord.Client()
 
@@ -11,7 +11,7 @@ client = discord.Client()
 async def on_ready():
     print('# Starting cleanup')
     testServer = client.get_server('188517330127552513')
-    account = users_db.get_account(testServer)
+    account = challonge_accounts.get(testServer)
 
     for t in await account.tournaments.index():
         if t["name"].startswith("pychallonge") or t["name"].startswith("bot_"):
@@ -19,14 +19,20 @@ async def on_ready():
             await account.tournaments.destroy(t["id"])
 
     for r in testServer.roles:
-        if r.name.startswith('Participant_'):
-            print(' removing role %s from test server' % r.name)
-            await client.delete_role(testServer, r)
+        if r.name.startswith('Participant_') or r.name.startswith('Challonge') and r not in testServer.me.roles:
+            try:
+                await client.delete_role(testServer, r)
+                print(' removed role %s from test server' % r.name)
+            except:
+                pass
 
     for c in list(testServer.channels):
-        if c.name.startswith('t_bot'):
-            print(' removing channel %s from test server' % c.name)
-            await client.delete_channel(c)
+        if c.name.startswith('t_bot'):            
+            try:
+                await client.delete_channel(c)
+                print(' removed channel %s from test server' % c.name)
+            except:
+                pass
 
     db.remove_all_tournaments(testServer)
 

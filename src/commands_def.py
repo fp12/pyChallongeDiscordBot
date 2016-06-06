@@ -1,6 +1,5 @@
 import discord
 import asyncio
-from c_users import users_db, ChallongeAccess
 from channel_type import ChannelType
 from db_access import db
 from const import *
@@ -8,8 +7,9 @@ from commands_core import *
 from permissions import Permissions
 from profiling import collector
 from utils import *
-from challonge_utils import *
 from challonge import Account, ChallongeException
+from challonge_accounts import ChallongeAccess
+from challonge_utils import *
 import string
 import cloudconvert
 from config import appConfig
@@ -55,7 +55,7 @@ async def dump(client, message, **kwargs):
         for page in paginate(db.dump_servers(), maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'users':
-        for page in paginate(users_db.dump(), maxChars):
+        for page in paginate(db.dump_users(), maxChars):
             await client.send_message(message.author, decorate(page))
 
 
@@ -77,7 +77,7 @@ async def key(client, message, **kwargs):
     if len(kwargs.get('key')) % 8 != 0:
         await client.send_message(message.author, '❌ Error: please check again your key')
     else:
-        users_db.set_key(message.author.id, kwargs.get('key'))
+        db.set_api_key(message.author, kwargs.get('key'))
         await client.send_message(message.author, '✅ Thanks, your key has been encrypted and stored on our server!')
         
 
@@ -606,7 +606,7 @@ async def username(client, message, **kwargs):
     Argument:
     username -- If you don't have one, you can sign up here for free https://challonge.com/users/new
     """
-    users_db.set_username(message.author.id, kwargs.get('username'))
+    db.set_username(message.author, kwargs.get('username'))
     await client.send_message(message.channel, '✅ Your username \'{}\' has been set!'.format(kwargs.get('username')))
 
 

@@ -1,7 +1,6 @@
 from config import appConfig
 import discord
 import asyncio
-from c_users import users_db
 from const import *
 import commands_def
 from commands_core import commands
@@ -19,7 +18,7 @@ async def greet_new_server(server):
     print(T_Log_JoinedServer.format(server.name,
                                     server.id, server.owner.name, server.owner.id))
 
-    users_db.add(server.owner.id)
+    db.add_user(server.owner)
 
     # get assigned role from add link
     for r in server.me.roles:
@@ -70,16 +69,16 @@ async def on_challonge_role_assigned(server, chRole):
     await client.edit_channel_permissions(chChannel, chRole)
 
     # notify owner
-    info = users_db.get_organizer(server.owner.id)
-    needName = info is None or not info.has_username()
-    needKey = info is None or not info.has_key()
-    if needName or needKey:
-        if needName and not needKey:
-            msg = T_JoinServer_NeedName
-        elif needKey and not needName:
-            msg = T_JoinServer_NeedKey.format(server.owner.name)
-        else:
-            msg = T_JoinServer_NeedAll
+    owner = db.get_user(server.owner)
+    needName = owner.user_name == ''
+    needKey = owner.api_key == ''
+
+    if needName and not needKey:
+        msg = T_JoinServer_NeedName
+    elif needKey and not needName:
+        msg = T_JoinServer_NeedKey.format(server.owner.name)
+    elif needKey and needName:
+        msg = T_JoinServer_NeedAll
     else:
         msg = T_JoinServer_NeedNothing
 
