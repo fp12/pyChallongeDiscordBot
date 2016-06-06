@@ -1,7 +1,8 @@
 import discord
 import asyncio
 from c_users import users_db, ChallongeAccess
-from c_servers import servers_db, ChannelType
+from channel_type import ChannelType
+from db_access import db
 from const import *
 from commands_core import *
 from permissions import Permissions
@@ -51,7 +52,7 @@ async def dump(client, message, **kwargs):
         for page in paginate(collector.dump(), maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'servers':
-        for page in paginate(servers_db.dump(), maxChars):
+        for page in paginate(db.dump_servers(), maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'users':
         for page in paginate(users_db.dump(), maxChars):
@@ -78,22 +79,6 @@ async def key(client, message, **kwargs):
     else:
         users_db.set_key(message.author.id, kwargs.get('key'))
         await client.send_message(message.author, '✅ Thanks, your key has been encrypted and stored on our server!')
-
-
-@optional_args('organization')
-@commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
-async def organization(client, message, **kwargs):
-    """Set up a Challonge organization for a server (optional)
-    Challonge organizations can be created here: http://challonge.com/organizations/new
-    Optional Argument:
-    organization -- if not set, it will be reset for this server
-    """
-    servers_db.edit(message.server, **kwargs)
-    organization = kwargs.get('organization')
-    if organization:
-        await client.send_message(message.channel, '✅ Organization **{0}** has been set for this server'.format(organization))
-    else:
-        await client.send_message(message.channel, '✅ Organization has been reset for this server')
         
 
 @required_args('member')
@@ -152,7 +137,7 @@ async def leaveserver(client, message, **kwargs):
     """Kick the Challonge bot out of your server
     Using this command, the bot will also remove the management channel it created
     """
-    channelId = servers_db.get_management_channel(message.server)
+    channelId = db.get_server(message.server).management_channel_id
     await client.delete_channel(discord.Channel(server=message.server, id=channelId))
     roles = [x for x in message.server.me.roles if x.name == C_RoleName]
     if len(roles) == 1:
@@ -206,9 +191,6 @@ async def create(client, message, **kwargs):
     params = {}
     if kwargs.get('subdomain', None):
         params['subdomain'] = kwargs.get('subdomain')
-    elif servers_db.get_organization(message.server):
-        params['subdomain'] = servers_db.get_organization(
-            message.server)
 
     try:
         t = await kwargs.get('account').tournaments.create(kwargs.get('name'), kwargs.get('url'), tournament_type, **params)
@@ -217,7 +199,7 @@ async def create(client, message, **kwargs):
     else:
         role = await client.create_role(message.server, name='Participant_' + kwargs.get('name'), mentionable=True)
         chChannel = await client.create_channel(message.server, 'T_' + kwargs.get('name'))
-        servers_db.add_tournament(message.server, channel=chChannel.id, role=role.id, challongeid=t['id'])
+        db.add_tournament(t['id'], chChannel, role.id)
         await client.send_message(message.channel, T_TournamentCreated.format(kwargs.get('name'),
                                                                               t['full-challonge-url'],
                                                                               role.mention,
@@ -384,9 +366,9 @@ async def destroy(client, message, **kwargs):
         if kwargs.get('tournament_role'):  # tournament role may have been deleted by finalize before
             await client.delete_role(message.server, kwargs.get('tournament_role'))
         await client.delete_channel(message.channel)
-        channelId = servers_db.get_management_channel(message.server)
+        channelId = db.get_server(message.server).management_channel_id
         await client.send_message(discord.Channel(server=message.server, id=channelId), '✅ Tournament {0} has been destroyed by {1}!'.format(t['name'], message.author.mention))
-        servers_db.remove_tournament(message.server, kwargs.get('tournament_id'))
+        db.remove_tournament(kwargs.get('tournament_id'))
 
 
 @helpers('account', 'tournament_id',)

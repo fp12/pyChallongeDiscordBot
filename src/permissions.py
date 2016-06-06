@@ -2,7 +2,8 @@ from enum import Enum
 from const import *
 import discord
 from config import appConfig
-from c_servers import servers_db
+from db_access import db
+
 
 class Permissions(Enum):
     Dev = 5
@@ -26,7 +27,7 @@ def get_permissions(user, channel):
     if not channel.is_private and user.id == channel.server.owner.id:
         return Permissions.ServerOwner
 
-    if channel.is_private and user.id in [s['ownerid'] for s in servers_db]:
+    if channel.is_private and user.id in db.get_servers_owners():
         return Permissions.ServerOwner
 
     if not channel.is_private:
@@ -35,12 +36,10 @@ def get_permissions(user, channel):
             return Permissions.Organizer
 
     if not channel.is_private:
-        alltourneysInServer = [s['tournaments'] for s in servers_db if s['id'] == channel.server.id and s['tournaments']]
-        if alltourneysInServer:
-            tourneyRole = [t['role'] for t in alltourneysInServer[0] if t['channel'] == channel.id]
-            if len(tourneyRole) == 1:
-                memberInServer = [m for m in channel.server.members if m.id == user.id][0]
-                if len([r for r in memberInServer.roles if r.id == tourneyRole[0]]) > 0:
-                    return Permissions.Participant
+        tournament = db.get_tournament(channel)
+        if tournament.role_id != 0:
+            memberInServer = [m for m in channel.server.members if m.id == user.id][0]
+            if len([r for r in memberInServer.roles if r.id == tournament.role_id]) > 0:
+                return Permissions.Participant
     
     return Permissions.User

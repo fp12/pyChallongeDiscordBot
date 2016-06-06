@@ -2,12 +2,11 @@ from config import appConfig
 import discord
 import asyncio
 from c_users import users_db
-from c_servers import servers_db
 from const import *
 import commands_def
 from commands_core import commands
 from profiling import profile_async, Scope
-
+from db_access import db
 
 print('app_start')
 
@@ -30,7 +29,7 @@ async def greet_new_server(server):
 
 @profile_async(Scope.Core)
 async def cleanup_removed_server(serverid):
-    servers_db.remove_server(serverid)
+    db.remove_server(serverid)
     print(T_Log_CleanRemovedServer.format(serverid))
 
 
@@ -38,12 +37,14 @@ async def cleanup_removed_server(serverid):
 async def on_ready_impl():
     print('on_ready')
 
-    for s in [s for s in client.servers if s.id not in servers_db]:
+    db_servers = db.get_servers_id()
+
+    for s in [s for s in client.servers if s.id not in db_servers]:
         print('on_ready greeting new server ' + s.name)
         await greet_new_server(s)
 
-    for sid in [s['id'] for s in servers_db if client.get_server(s['id']) not in client.servers]:
-        print('on_ready cleaning removed server ' + sid)
+    for sid in [server_id for server_id in db_servers if client.get_server(server_id) not in client.servers]:
+        print('on_ready cleaning removed server %d' % sid)
         await cleanup_removed_server(sid)
 
     # Should we do a sanity check?
@@ -56,12 +57,15 @@ async def on_ready():
 
 @profile_async(Scope.Core)
 async def on_challonge_role_assigned(server, chRole):
-    await client.move_role(server, chRole, 1)
+    try:
+        await client.move_role(server, chRole, 1)
+    except discord.errors.HTTPException:
+        pass
 
     # now create a channel
     chChannel = await client.create_channel(server, C_ManagementChannelName)
 
-    servers_db.add_server(server, chChannel)
+    db.add_server(server, chChannel)
 
     await client.edit_channel_permissions(chChannel, chRole)
 

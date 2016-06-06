@@ -1,7 +1,8 @@
 import asyncio
 from permissions import Permissions, get_permissions
-from c_servers import servers_db, ChannelType, get_channel_type
+from channel_type import ChannelType, get_channel_type
 from c_users import users_db, ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet
+from db_access import db
 import discord
 from const import *
 import utils
@@ -30,10 +31,8 @@ class ContextValidationError_InsufficientPrivileges(Exception):
 class Attributes:
     def __init__(self, **kwargs):
         self.minPermissions = kwargs.get('minPermissions', Permissions.User)
-        self.channelRestrictions = kwargs.get(
-            'channelRestrictions', ChannelType.Other)
-        self.challongeAccess = kwargs.get(
-            'challongeAccess', ChallongeAccess.NotRequired)
+        self.channelRestrictions = kwargs.get('channelRestrictions', ChannelType.Other)
+        self.challongeAccess = kwargs.get('challongeAccess', ChallongeAccess.NotRequired)
 
 
 class Command:
@@ -68,8 +67,7 @@ class Command:
         if authorPerms >= self.attributes.minPermissions:
             channelType = get_channel_type(message.channel)
             if channelType == ChannelType.Dev or channelType & self.attributes.channelRestrictions:
-                reqParamsExpected = 0 if self.reqParams is None else len(
-                    self.reqParams)
+                reqParamsExpected = 0 if self.reqParams is None else len(self.reqParams)
                 givenParams = len(postCommand)
                 if givenParams >= reqParamsExpected:
                     if self.attributes.challongeAccess == ChallongeAccess.Required:
@@ -96,12 +94,12 @@ class Command:
             if x == 'account':
                 kwargs[x] = users_db.get_account(message.server)
             elif x == 'tournament_id':
-                kwargs[x] = servers_db.get_tournament_id(message.channel)
+                kwargs[x] = db.get_tournament(message.channel).challonge_id
             elif x == 'tournament_role':
-                roleid = servers_db.get_tournament_role(message.channel)
+                roleid = db.get_tournament(message.channel).role_id
                 kwargs[x] = discord.utils.find(lambda r: r.id == roleid, message.server.roles)
             elif x == 'tournament_channel':
-                channelid = servers_db.get_tournament_channel(message.channel)
+                channelid = db.get_tournament(message.channel).channel_id
                 kwargs[x] = discord.utils.find(lambda c: c.id == channelid, message.server.channels)
             elif x == 'participant_username':
                 participant = users_db.get_user(message.author.id)
