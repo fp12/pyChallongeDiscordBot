@@ -3,7 +3,7 @@ class DBServer():
         if tup:
             self._tup = tup
         else:
-            self._tup = (0, 0, 0)
+            self._tup = ('', '', '')
 
     @property
     def server_id(self):
@@ -23,7 +23,7 @@ class DBTournament():
         if tup:
             self._tup = tup
         else:
-            self._tup = (0, 0, 0, 0)
+            self._tup = ('', '', '', '')
 
     @property
     def challonge_id(self):
@@ -47,7 +47,7 @@ class DBUser():
         if tup:
             self._tup = tup
         else:
-            self._tup = (0, '', '')
+            self._tup = ('', '', '')
 
     @property
     def discord_id(self):
@@ -60,3 +60,31 @@ class DBUser():
     @property
     def api_key(self):
         return self._tup[2]
+
+
+class DBProfileEntry():
+    def __init__(self, tup):
+        if tup:
+            self._tup = tup
+        else:
+            self._tup = ('', '', '', '', '')
+
+    @property
+    def logget_at(self):
+        return self._tup[0]
+
+    @property
+    def scope(self):
+        return self._tup[1]
+
+    @property
+    def time(self):
+        return self._tup[2]
+
+    @property
+    def args(self):
+        return self._tup[3]
+
+    @property
+    def server(self):
+        return self._tup[4]

@@ -5,7 +5,6 @@ from db_access import db
 from const import *
 from commands_core import *
 from permissions import Permissions
-from profiling import collector
 from utils import *
 from challonge import Account, ChallongeException
 from challonge_accounts import ChallongeAccess
@@ -49,7 +48,7 @@ async def dump(client, message, **kwargs):
         for page in paginate(commands.dump(), maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'profile':
-        for page in paginate(collector.dump(), maxChars):
+        for page in paginate(db.dump_profile(), maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'servers':
         for page in paginate(db.dump_servers(), maxChars):

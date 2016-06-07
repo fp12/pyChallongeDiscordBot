@@ -27,7 +27,7 @@ async def on_ready():
                 pass
 
     for c in list(testServer.channels):
-        if c.name.startswith('t_bot'):            
+        if c.name.startswith('t_bot') or c.name.startswith('challongemanagement'):
             try:
                 await client.delete_channel(c)
                 print(' removed channel %s from test server' % c.name)
