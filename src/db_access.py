@@ -145,6 +145,7 @@ class DBAccess():
         rows = self._c.fetchall()
         print(rows)
         return print_array('Profiling stats',
+                           profileFormatHeader.format('Start', 'Name', 'Time (ms)', 'Args', 'Server'),
                            rows,
                            lambda x: profileFormat.format(x[0],
                                                           x[1],

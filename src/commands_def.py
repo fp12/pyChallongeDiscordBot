@@ -20,9 +20,9 @@ cloudconvertapi = cloudconvert.Api(appConfig['cloudconvert'])
 def get_member(name, message):
     member_id = utils.get_user_id_from_mention(name)
     if member_id == 0:
-        return server.get_member_named(name)
+        return message.server.get_member_named(name)
     else:
-        return discord.utils.get(server.members, id=member_id)
+        return discord.utils.get(message.server.members, id=member_id)
 
 
 # DEV ONLY
@@ -64,6 +64,7 @@ async def dump(client, message, **kwargs):
 async def ping(client, message, **kwargs):
     timeSpent = datetime.datetime.now() - message.timestamp + datetime.timedelta(hours=4) # uct correction
     await client.send_message(message.channel, '✅ pong! `{0:.3f}`s'.format(timeSpent.total_seconds()))
+
 
 @required_args('key')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Private)
@@ -336,7 +337,7 @@ async def finalize(client, message, **kwargs):
     No Arguments
     """
     try:
-        await kwargs.get('account').tournaments.finalize(kwargs.get('tournament_id'))
+        t = await kwargs.get('account').tournaments.finalize(kwargs.get('tournament_id'))
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
@@ -344,7 +345,7 @@ async def finalize(client, message, **kwargs):
         # only the Challonge role will be able to write in it
         await client.delete_role(message.server, kwargs.get('tournament_role'))
         await client.send_message(message.channel, '✅ Tournament has been finalized!')
-        # TODO real text ?
+        # TODO real text + show rankings
 
 
 @helpers('account', 'tournament_id', 'tournament_role')
@@ -370,7 +371,74 @@ async def destroy(client, message, **kwargs):
         db.remove_tournament(kwargs.get('tournament_id'))
 
 
-@helpers('account', 'tournament_id',)
+
+@helpers('account', 'tournament_id')
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.Required)
+async def status(client, message, **kwargs):
+    """Get the tournament status
+    No Arguments
+    """
+    try:
+        t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
+    except ChallongeException as e:
+        await client.send_message(message.author, T_OnChallongeException.format(e))
+    else:
+        if t['state'] == 'underway':
+            info = []
+            info.append('✅ Status for tournament `{0}` ({1})'.format(t['name'], t['full-challonge-url']))
+            openMatches = [m for m in t['matches'] if m['state'] == 'open']
+            openMatches.sort(key=match_sort_by_round)
+
+            if t['tournament-type'] == 'double elimination':
+                bracketType = 0
+            elif t['tournament-type'] == 'single elimination':
+                bracketType = 1
+            else:
+                bracketType = 0
+
+            for om in openMatches:
+                if t['tournament-type'] in ['single elimination', 'double elimination']:
+                    if om['round'] > 0 and bracketType != 1:
+                        info.append('Winners bracket:')
+                        bracketType = 1
+                    elif om['round'] < 0 and bracketType != 2:
+                        info.append('Losers bracket:')
+                        bracketType = 2
+                else:
+                    if bracketType == 0:
+                        info.append('Open matches:')
+                        bracketType = 1
+
+                p1 = [p for p in t['participants'] if p['id'] == om['player1-id']][0]
+                p2 = [p for p in t['participants'] if p['id'] == om['player2-id']][0]
+                info.append('`{0}` 🆚 `{1}`'.format(p1['name'], p2['name']))
+
+            await client.send_message(message.channel, '\n'.join(info))
+        elif t['state'] == 'pending':
+            info = []
+            info.append('✅ Tournament: {0} ({1}) is pending.'.format(t['name'], t['full-challonge-url']))
+            info.append('%d participants have registered right now. More can still join until tournament is started' % t['participants-count'])
+            await client.send_message(message.channel, '\n'.join(info))
+        elif t['state'] == 'awaiting_review':
+            await client.send_message(message.channel, '✅ Tournament: {0} ({1}) has been completed and is waiting for final review (finalize)'.format(t['name'], t['full-challonge-url']))
+        elif t['state'] == 'complete':
+            info = []
+            info.append('✅ Tournament: {0} ({1}) has been completed.'.format(t['name'], t['full-challonge-url']))
+            info.append('Final standings:')
+            t['participants'].sort(key=player_sort_by_rank)
+            lastRank = 0
+            for p in t['participants']:
+                if lastRank < p['final-rank']:
+                    info.append('Position #%d' % p['final-rank'])
+                    lastRank = p['final-rank']
+                info.append('\t' + p['name'])
+
+            await client.send_message(message.channel, '\n'.join(info))
+
+
+@helpers('account', 'tournament_id')
 @required_args('p1', 'score', 'p2')
 @commands.register(minPermissions=Permissions.Organizer,
                    channelRestrictions=ChannelType.Tournament,

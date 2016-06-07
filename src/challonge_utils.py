@@ -25,8 +25,16 @@ def reverse_score(csv_score):
 
 
 def verify_score_format(csv_score):
-	result = re.compile('(\d+-\d+)(,\d+-\d+)*')
-	return result.match(csv_score)
+    result = re.compile('(\d+-\d+)(,\d+-\d+)*')
+    return result.match(csv_score)
+
+
+def match_sort_by_round(list_):
+    return list_['round'] < 0, abs(list_['round'])
+
+
+def player_sort_by_rank(list_):
+    return list_['final-rank']
 
 
 async def get_player(account, t_id, name):
