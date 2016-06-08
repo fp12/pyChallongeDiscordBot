@@ -63,8 +63,9 @@ class Command:
 
     @profile_async(Scope.Core)
     async def validate_context(self, client, message, postCommand):
-        if self.attributes.challongeAccess == ChallongeAccess.Required:
-            acc = await get_account(message.server)  # can raise
+        if self.attributes.challongeAccess == ChallongeAccess.RequiredForAuthor:
+            acc = await get_account(message.author.id)  # can raise
+
         authorPerms = get_permissions(message.author, message.channel)
         if authorPerms >= self.attributes.minPermissions:
             channelType = get_channel_type(message.channel)
@@ -72,8 +73,9 @@ class Command:
                 reqParamsExpected = 0 if self.reqParams is None else len(self.reqParams)
                 givenParams = len(postCommand)
                 if givenParams < reqParamsExpected:
-                    raise ContextValidationError_MissingParameters(
-                        reqParamsExpected, givenParams)
+                    raise ContextValidationError_MissingParameters(reqParamsExpected, givenParams)
+                elif  self.attributes.challongeAccess == ChallongeAccess.RequiredForHost:
+                    acc = await get_account(get_tournament(message.channel).host_id)
             else:
                 raise ContextValidationError_WrongChannel
         else:
@@ -91,7 +93,10 @@ class Command:
         kwargs = {}
         for x in self.helpers:
             if x == 'account':
-                kwargs[x] = await get_account(message.server)
+                if self.attributes.challongeAccess == ChallongeAccess.RequiredForAuthor:
+                    kwargs[x] = await get_account(message.author.id)
+                else:
+                    kwargs[x] = await get_account(get_tournament(message.channel).host_id)
             elif x == 'tournament_id':
                 kwargs[x] = db.get_tournament(message.channel).challonge_id
             elif x == 'tournament_role':
@@ -101,7 +106,7 @@ class Command:
                 channelid = db.get_tournament(message.channel).channel_id
                 kwargs[x] = discord.utils.find(lambda c: c.id == channelid, message.server.channels)
             elif x == 'participant_username':
-                kwargs[x] = db.get_user(message.author).user_name
+                kwargs[x] = db.get_user(message.author.id).user_name
 
         return kwargs
 

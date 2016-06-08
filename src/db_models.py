@@ -23,7 +23,7 @@ class DBTournament():
         if tup:
             self._tup = tup
         else:
-            self._tup = (None, None, None, None)
+            self._tup = (None, None, None, None, None)
 
     @property
     def challonge_id(self):
@@ -40,6 +40,10 @@ class DBTournament():
     @property
     def role_id(self):
         return self._tup[3]
+
+    @property
+    def host_id(self):
+        return self._tup[4]
 
 
 class DBUser():

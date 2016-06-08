@@ -6,7 +6,8 @@ import asyncio
 
 class ChallongeAccess(Enum):
     NotRequired = 0
-    Required = 1
+    RequiredForAuthor = 1
+    RequiredForHost = 2
 
 
 class UserNotFound(Exception):
@@ -32,8 +33,8 @@ class InvalidCredentials(Exception):
 challonge_accounts = []
 
 
-async def get(server):
-    user = db.get_user(server.owner)
+async def get(user_id):
+    user = db.get_user(user_id)
     if not user.discord_id:
         raise UserNotFound()
     elif not user.user_name:

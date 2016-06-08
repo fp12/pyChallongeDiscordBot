@@ -60,18 +60,18 @@ class DBAccess():
 
     # Tournaments
 
-    def add_tournament(self, challongeID, channel, roleId):
+    def add_tournament(self, challongeId, channel, roleId, hostId):
         try:
-            self._c.execute('INSERT INTO Tournament VALUES(?, ?, ?, ?)',
-                            (challongeID, channel.server.id, channel.id, roleId))
+            self._c.execute('INSERT INTO Tournament VALUES(?, ?, ?, ?, ?)',
+                            (challongeId, channel.server.id, channel.id, roleId, hostId))
             self._conn.commit()
         except Exception as e:
             self._log_exc('add_tournament', e)
 
-    def remove_tournament(self, challongeID):
+    def remove_tournament(self, challongeId):
         try:
             self._c.execute(
-                'DELETE FROM Tournament WHERE ChallongeID=?', (challongeID,))
+                'DELETE FROM Tournament WHERE ChallongeID=?', (challongeId,))
             self._conn.commit()
         except Exception as e:
             self._log_exc('remove_tournament', e)
@@ -99,8 +99,8 @@ class DBAccess():
         except Exception as e:
             self._log_exc('add_user', e)
 
-    def get_user(self, user):
-        self._c.execute("SELECT * FROM User WHERE DiscordID=?", (user.id,))
+    def get_user(self, user_id):
+        self._c.execute("SELECT * FROM User WHERE DiscordID=?", (user_id,))
         return DBUser(self._c.fetchone())
 
     def set_username(self, user, username):

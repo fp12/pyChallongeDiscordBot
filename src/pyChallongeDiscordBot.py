@@ -69,7 +69,7 @@ async def on_challonge_role_assigned(server, chRole):
     await client.edit_channel_permissions(chChannel, chRole)
 
     # notify owner
-    owner = db.get_user(server.owner)
+    owner = db.get_user(server.owner.id)
     needName = owner.user_name == None
     needKey = owner.api_key == None
 
