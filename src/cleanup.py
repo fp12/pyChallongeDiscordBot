@@ -11,7 +11,7 @@ client = discord.Client()
 async def on_ready():
     print('# Starting cleanup')
     testServer = client.get_server('188517330127552513')
-    account = challonge_accounts.get(testServer)
+    account = await challonge_accounts.get(testServer)
 
     for t in await account.tournaments.index():
         if t["name"].startswith("pychallonge") or t["name"].startswith("bot_"):
@@ -40,4 +40,4 @@ async def on_ready():
     client.logout()
 
 
-client.run(appConfig['Discord']['token'])
+client.run(appConfig['discord']['token'])
