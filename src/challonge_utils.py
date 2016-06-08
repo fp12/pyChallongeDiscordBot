@@ -55,6 +55,7 @@ async def get_players(account, t_id, p1_name, p2_name):
     except ChallongeException as e:
         return None, None, T_OnChallongeException.format(e)
     else:
+        p1_id = p2_id = None
         for x in participants:
             if x['name'] == p1_name:
                 p1_id = x['id']
@@ -65,7 +66,7 @@ async def get_players(account, t_id, p1_name, p2_name):
         return p1_id, p2_id, None
 
 
-async def get_match(t_id, p1_id, p2_id):
+async def get_match(account, t_id, p1_id, p2_id):
     try:
         openMatches = await account.matches.index(t_id, state='open', participant_id=p1_id)
     except ChallongeException as e:

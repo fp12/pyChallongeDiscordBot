@@ -37,7 +37,7 @@ def get_permissions(user, channel):
 
     if not channel.is_private:
         tournament = db.get_tournament(channel)
-        if tournament.role_id != 0:
+        if tournament.role_id:
             memberInServer = [m for m in channel.server.members if m.id == user.id][0]
             if len([r for r in memberInServer.roles if r.id == tournament.role_id]) > 0:
                 return Permissions.Participant

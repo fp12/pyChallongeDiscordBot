@@ -17,12 +17,12 @@ import datetime
 
 cloudconvertapi = cloudconvert.Api(appConfig['cloudconvert'])
 
-def get_member(name, message):
+def get_member(name, server):
     member_id = utils.get_user_id_from_mention(name)
     if member_id == 0:
-        return message.server.get_member_named(name)
+        return server.get_member_named(name)
     else:
-        return discord.utils.get(message.server.members, id=member_id)
+        return discord.utils.get(server.members, id=member_id)
 
 
 # DEV ONLY
@@ -256,7 +256,7 @@ async def start(client, message, **kwargs):
         
         await client.send_message(message.channel, '✅ Tournament is now started!')
         # TODO real text (with games to play...)
-        
+        """
         process = cloudconvertapi.convert({
             "inputformat": "svg",
             "outputformat": "png",
@@ -270,7 +270,7 @@ async def start(client, message, **kwargs):
             os.remove('data/temp.png')
         except OSError as e:
             print ("Error: %s - %s." % (e.filename,e.strerror))
-
+        """
 
 @helpers('account', 'tournament_id')
 @commands.register(minPermissions=Permissions.Organizer,

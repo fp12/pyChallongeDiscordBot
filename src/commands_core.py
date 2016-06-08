@@ -1,7 +1,7 @@
 import asyncio
 from permissions import Permissions, get_permissions
 from channel_type import ChannelType, get_channel_type
-from challonge_accounts import ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet, get as get_account
+from challonge_accounts import ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet, InvalidCredentials, get as get_account
 from db_access import db
 import discord
 from const import *
@@ -61,18 +61,17 @@ class Command:
         self.helpers = args
         return self
 
-    @profile(Scope.Core)
-    def validate_context(self, client, message, postCommand):
+    @profile_async(Scope.Core)
+    async def validate_context(self, client, message, postCommand):
+        if self.attributes.challongeAccess == ChallongeAccess.Required:
+            acc = await get_account(message.server)  # can raise
         authorPerms = get_permissions(message.author, message.channel)
         if authorPerms >= self.attributes.minPermissions:
             channelType = get_channel_type(message.channel)
             if channelType == ChannelType.Dev or channelType & self.attributes.channelRestrictions:
                 reqParamsExpected = 0 if self.reqParams is None else len(self.reqParams)
                 givenParams = len(postCommand)
-                if givenParams >= reqParamsExpected:
-                    if self.attributes.challongeAccess == ChallongeAccess.Required:
-                        acc = get_account(message.server)  # can raise
-                else:
+                if givenParams < reqParamsExpected:
                     raise ContextValidationError_MissingParameters(
                         reqParamsExpected, givenParams)
             else:
@@ -88,11 +87,11 @@ class Command:
         return False
 
     @profile(Scope.Core)
-    def _fetch_helpers(self, message):
+    async def _fetch_helpers(self, message):
         kwargs = {}
         for x in self.helpers:
             if x == 'account':
-                kwargs[x] = get_account(message.server)
+                kwargs[x] = await get_account(message.server)
             elif x == 'tournament_id':
                 kwargs[x] = db.get_tournament(message.channel).challonge_id
             elif x == 'tournament_role':
@@ -106,8 +105,8 @@ class Command:
 
         return kwargs
 
-    @profile_async(Scope.Core)
-    async def execute(self, client, message, postCommand):
+    @profile(Scope.Core)
+    def _fetch_args(self, postCommand):
         kwargs = {}
 
         for count, x in enumerate(self.reqParams):
@@ -118,7 +117,12 @@ class Command:
             if count + offset < len(postCommand):
                 kwargs[x] = postCommand[count + offset]
 
-        kwargs.update(self._fetch_helpers(message))
+        return kwargs
+
+    async def execute(self, client, message, postCommand):
+        kwargs = {}
+        kwargs.update(self._fetch_args(postCommand))
+        kwargs.update(await self._fetch_helpers(message))
 
         await self.cb(client, message, **kwargs)
 
@@ -161,8 +165,8 @@ class CommandsHandler:
             return self._add(Command(func.__name__, wrapper, Attributes(**attributes)))
         return decorator
 
-    @profile_async(Scope.Core)
-    async def try_execute(self, client, message):
+    @profile(Scope.Core)
+    def _get_command_and_postcommand(self, client, message):
         split = message.content.split()
 
         if message.channel.is_private:
@@ -178,17 +182,25 @@ class CommandsHandler:
         else:
             command = None
 
-        if command is not None:
-            postCommand = split[offset:len(split)]
+        if command:
+            return command, split[offset:len(split)]
+        else:
+            return None, None
+
+    async def try_execute(self, client, message):
+        command, postCommand = self._get_command_and_postcommand(client, message)
+
+        if command:
             try:
-                command.validate_context(client, message, postCommand)
+                await command.validate_context(client, message, postCommand)
             except ContextValidationError_MissingParameters as e:
                 await client.send_message(message.channel, T_ValidateCommandContext_BadParameters.format(command.name, e.req, e.given))
             except (ContextValidationError_WrongChannel,
                     ContextValidationError_InsufficientPrivileges,
                     UserNotFound,
                     UserNameNotSet,
-                    APIKeyNotSet) as e:
+                    APIKeyNotSet,
+                    InvalidCredentials) as e:
                 await client.send_message(message.channel, e)
             else:
                 await command.execute(client, message, postCommand)

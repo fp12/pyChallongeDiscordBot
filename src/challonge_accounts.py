@@ -1,8 +1,8 @@
 from db_access import db
-from challonge import Account
+from challonge import Account, ChallongeException
 from enum import Enum
 from encoding import encoder
-
+import asyncio
 
 class ChallongeAccess(Enum):
     NotRequired = 0
@@ -16,30 +16,41 @@ class UserNotFound(Exception):
 
 class UserNameNotSet(Exception):
     def __str__(self):
-        return 'Your Challonge username has not been set\nPlease use the command `username [name]` to set it'
+        return 'Your Challonge username has not been set. Please use the command `username [name]` to set it'
 
 
 class APIKeyNotSet(Exception):
     def __str__(self):
-        return 'Your Challonge API key has not been set\nPlease use the command `key [apikey]` to set it'
+        return 'Your Challonge API key has not been set. Please use the command `key [apikey]` to set it'
+
+
+class InvalidCredentials(Exception):
+    def __str__(self):
+        return 'Your Challonge credentials are not valid. Please set them again via the `username` and `key` commands'
 
 
 challonge_accounts = []
 
 
-def get(server):
+async def get(server):
     user = db.get_user(server.owner)
-    if user.discord_id == 0:
+    if not user.discord_id:
         raise UserNotFound()
-    elif user.user_name == '':
+    elif not user.user_name:
         raise UserNameNotSet()
-    elif user.api_key == '':
+    elif not user.api_key:
         raise APIKeyNotSet()
 
     for x in challonge_accounts:
         if x['user_id'] == user.discord_id:
             return x['account']
-    newEntry = {'user_id': user.discord_id, 'account': Account(
-        user.user_name, encoder.decrypt(user.api_key))}
-    challonge_accounts.append(newEntry)
-    return newEntry['account']
+    
+    newAccount = Account(user.user_name, encoder.decrypt(user.api_key))
+    try:
+        is_valid = await newAccount.is_valid
+    except ChallongeException:
+        raise InvalidCredentials()
+    else:
+        newEntry = {'user_id': user.discord_id, 'account': newAccount}
+        challonge_accounts.append(newEntry)
+        return newEntry['account']

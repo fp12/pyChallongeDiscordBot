@@ -70,8 +70,8 @@ async def on_challonge_role_assigned(server, chRole):
 
     # notify owner
     owner = db.get_user(server.owner)
-    needName = owner.user_name == ''
-    needKey = owner.api_key == ''
+    needName = owner.user_name == None
+    needKey = owner.api_key == None
 
     if needName and not needKey:
         msg = T_JoinServer_NeedName
@@ -135,6 +135,6 @@ async def on_message(message):
     await commands.try_execute(client, message)
 
 
-client.run(appConfig['Discord']['token'])
+client.run(appConfig['discord']['token'])
 
 print('app_stop')

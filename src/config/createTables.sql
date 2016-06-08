@@ -1,23 +1,27 @@
-CREATE TABLE "Server" (
-    "DiscordID" TEXT NOT NULL,
-    "OwnerID" TEXT NOT NULL,
-    "ManagementChannelID" TEXT NOT NULL
-);
-CREATE TABLE "Tournament" (
-    "ChallongeID" TEXT NOT NULL,
-    "ServerID" TEXT NOT NULL,
-    "ChannelID" TEXT NOT NULL,
-    "RoleID" TEXT NOT NULL
+BEGIN TRANSACTION;
+CREATE TABLE "User" (
+	`DiscordID`	TEXT NOT NULL UNIQUE,
+	`ChallongeUserName`	TEXT,
+	`ChallongeAPIKey`	TEXT,
+	PRIMARY KEY(DiscordID)
 );
 CREATE TABLE "TournamentUsers" (
     "TournamentID" TEXT NOT NULL,
     "UserDiscordID" TEXT NOT NULL,
     "UserChallongeID" TEXT
 );
-CREATE TABLE "User" (
-    "DiscordID" TEXT NOT NULL,
-    "ChallongeUserName" TEXT,
-    "ChallongeAPIKey" TEXT
+CREATE TABLE "Tournament" (
+	`ChallongeID`	TEXT NOT NULL UNIQUE,
+	`ServerID`	TEXT NOT NULL,
+	`ChannelID`	TEXT NOT NULL UNIQUE,
+	`RoleID`	TEXT NOT NULL UNIQUE,
+	PRIMARY KEY(ChallongeID)
+);
+CREATE TABLE "Server" (
+	`DiscordID`	TEXT NOT NULL UNIQUE,
+	`OwnerID`	TEXT NOT NULL,
+	`ManagementChannelID`	TEXT NOT NULL,
+	PRIMARY KEY(DiscordID)
 );
 CREATE TABLE "Profile" (
     "LoggedAt" TEXT NOT NULL,
@@ -27,3 +31,4 @@ CREATE TABLE "Profile" (
     "Args" TEXT,
     "Server" TEXT
 );
+COMMIT;

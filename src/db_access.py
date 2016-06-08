@@ -32,8 +32,7 @@ class DBAccess():
 
     def remove_server(self, serverid):
         try:
-            self._c.execute(
-                'DELETE FROM Server WHERE DiscordID = ?', (serverid,))
+            self._c.execute('DELETE FROM Server WHERE DiscordID = ?', (serverid,))
             self._conn.commit()
         except Exception as e:
             self._log_exc('remove_server', e)
@@ -44,7 +43,7 @@ class DBAccess():
 
     def get_servers_owners(self):
         self._c.execute("SELECT OwnerID FROM Server")
-        return [i[1] for i in self._c.fetchall()]
+        return [i[0] for i in self._c.fetchall()]
 
     def get_server(self, server):
         self._c.execute("SELECT * FROM Server WHERE DiscordID=?", (server.id,))
