@@ -37,6 +37,21 @@ def player_sort_by_rank(list_):
     return list_['final-rank']
 
 
+def get_date(date):
+    r = re.match('(?P<year>(?:19|20)\d\d)/(?P<month>0[1-9]|1[012])/(?P<day>0[1-9]|[12][0-9]|3[01])', date)
+    if r:
+        return r.groupdict()
+    else:
+        return None
+
+
+def get_time(time):
+    r = re.match('(?P<hours>[01]\d|2[0-4]):(?P<minutes>[0-5]\d)', time)
+    if r:
+        return r.groupdict()
+    else:
+        return None
+
 async def get_player(account, t_id, name):
     try:
         participants = await account.participants.index(t_id)
@@ -45,7 +60,7 @@ async def get_player(account, t_id, name):
     else:
         for x in participants:
             if x['name'] == name:
-                return x['id']
+                return x['id'], None
         return None, None
 
 

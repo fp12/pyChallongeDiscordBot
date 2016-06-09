@@ -137,10 +137,10 @@ class DBAccess():
             self._log_exc('add_profile_log', e)
 
     def dump_profile(self):
-        self._c.execute('SELECT Name, total(Time) as Total, avg(Time), count(Time) FROM Profile GROUP BY Name ORDER BY Total DESC')
+        self._c.execute('SELECT Name, avg(Time) AS AVG, total(Time) as Total, count(Time) FROM Profile GROUP BY Name ORDER BY AVG DESC')
         rows = self._c.fetchall()
         return print_array('Profiling stats',
-                           profileFormat.format('Name', 'Total (ms)', 'Average (ms)', 'Count'),
+                           profileFormat.format('Name', 'Average (ms)', 'Total (ms)', 'Count'),
                            rows,
                            lambda x: profileFormat.format(x[0], x[1], x[2], x[3]))
 

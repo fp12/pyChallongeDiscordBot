@@ -13,7 +13,7 @@ import string
 import cloudconvert
 from config import appConfig
 import os
-import datetime
+from datetime import datetime, timedelta
 
 cloudconvertapi = cloudconvert.Api(appConfig['cloudconvert'])
 
@@ -62,7 +62,7 @@ async def dump(client, message, **kwargs):
 
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Any)
 async def ping(client, message, **kwargs):
-    timeSpent = datetime.datetime.now() - message.timestamp + datetime.timedelta(hours=4) # uct correction
+    timeSpent = datetime.now() - message.timestamp + timedelta(hours=4) # uct correction
     await client.send_message(message.channel, '✅ pong! `{0:.3f}`s'.format(timeSpent.total_seconds()))
 
         
@@ -292,6 +292,53 @@ async def reset(client, message, **kwargs):
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
         await client.send_message(message.channel, '✅ Tournament is has been reset!')
+        # TODO real text ?
+
+
+@helpers('account', 'tournament_id')
+@required_args('date', 'time', 'duration')
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.RequiredForHost)
+async def checkin_setup(client, message, **kwargs):
+    """Setup the checkin process for participants
+    Required Arguments:
+    date -- date of the tournament: YYYY/MM/DD
+    time -- time of the tournament: HH:MM (24h format)
+    duration -- length of the participant check-in window in minutes. 
+    """
+    # verify date
+    date = get_date(kwargs.get('date'))
+    if not date:
+        await client.send_message(message.channel, '❌ Wrong date format. Must be `YYYY/MM/DD`.')
+        return
+
+    # verify time
+    time = get_time(kwargs.get('time'))
+    if not time:
+        await client.send_message(message.channel, '❌ Wrong time format. Must be `HH:MM` (24h format).')
+        return
+
+    # verify duration
+    try:
+        duration = int(kwargs.get('duration'))
+    except ValueError:
+        await client.send_message(message.channel, '❌ Duration must be an integer')
+        return
+    else:
+        if duration <= 0:
+            await client.send_message(message.channel, '❌ Duration must be a positive integer')
+            return
+
+    # combime date & time
+    full_date_time = datetime.strptime(kwargs.get('date') + ' ' + kwargs.get('time'), '%Y/%m/%d %H:%M')
+
+    try:
+        await kwargs.get('account').tournaments.update(kwargs.get('tournament_id'), start_at=full_date_time, check_in_duration=duration)
+    except ChallongeException as e:
+        await client.send_message(message.author, T_OnChallongeException.format(e))
+    else:
+        await client.send_message(message.channel, '✅ Start date and check-in duration have been processed')
         # TODO real text ?
 
 
@@ -570,7 +617,7 @@ async def forfeit(client, message, **kwargs):
     and you won't be able to write in this channel anymore
     No Arguments
     """
-    author_id, exc = get_player(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
+    author_id, exc = await get_player(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
     if exc:
         await client.send_message(message.channel, exc)
         return
@@ -591,7 +638,7 @@ async def next(client, message, **kwargs):
     """Get information about your next game
     No Arguments
     """
-    author_id, exc = get_player(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
+    author_id, exc = await get_player(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
     if exc:
         await client.send_message(message.channel, exc)
         return
@@ -634,16 +681,17 @@ async def checkin(client, message, **kwargs):
     """Check-in for the current tournament
     No Arguments
     """
-    try:
-        participants = await kwargs.get('account').participants.index(kwargs.get('tournament_id'))
-        for x in participants:
-            if x['name'] == message.author.name:
-                await kwargs.get('account').participants.check_in(kwargs.get('tournament_id'), x['id'])
-                break
-    except ChallongeException as e:
-        await client.send_message(message.author, T_OnChallongeException.format(e))
-    else:
-        await client.send_message(message.channel, '✅ You have successfully checked in. Please wait for the organizers to start the tournament')
+    author_id, exc = await get_player(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
+    elif author_id:
+        try:
+            await kwargs.get('account').participants.check_in(kwargs.get('tournament_id'), author_id)
+        except ChallongeException as e:
+            await client.send_message(message.author, T_OnChallongeException.format(e))
+        else:
+            await client.send_message(message.channel, '✅ You have successfully checked in. Please wait for the organizers to start the tournament')
 
 
 @helpers('account', 'tournament_id', 'participant_name')
