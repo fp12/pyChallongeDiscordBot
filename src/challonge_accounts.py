@@ -12,22 +12,22 @@ class ChallongeAccess(Enum):
 
 class UserNotFound(Exception):
     def __str__(self):
-        return 'User not found'
+        return '❌ User not found'
 
 
 class UserNameNotSet(Exception):
     def __str__(self):
-        return 'Your Challonge username has not been set. Please use the command `username [name]` to set it'
+        return '❌ Your Challonge username has not been set. Please use the command `username [name]` to set it'
 
 
 class APIKeyNotSet(Exception):
     def __str__(self):
-        return 'Your Challonge API key has not been set. Please use the command `key [apikey]` to set it'
+        return '❌ Your Challonge API key has not been set. Please use the command `key [apikey]` to set it'
 
 
 class InvalidCredentials(Exception):
     def __str__(self):
-        return 'Your Challonge credentials are not valid. Please set them again via the `username` and `key` commands'
+        return '❌ Your Challonge credentials are not valid. Please set them again via the `username` and `key` commands'
 
 
 challonge_accounts = []

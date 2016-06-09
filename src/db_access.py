@@ -5,8 +5,7 @@ from utils import *
 
 serverFormat = '| {0:19}| {1:19}| {2:19}|'
 userFormat = '| {0:19}| {1:19}| {2:15}|'
-profileFormatHeader = '| {0:15}| {1:35}| {2:10}| {3:30}| {4:19}|'
-profileFormat = '| {0:15}| {1:14}::{2:19}| {3:10}| {4:30}| {5:19}|'
+profileFormat = '| {0:25}| {1:35}| {2:10}| {3:30}|'
 
 
 class DBAccess():
@@ -105,8 +104,7 @@ class DBAccess():
 
     def set_username(self, user, username):
         try:
-            self._c.execute(
-                'UPDATE User SET ChallongeUserName=? WHERE DiscordID=?', (username, user.id))
+            self._c.execute('INSERT OR REPLACE INTO User (DiscordID, ChallongeUserName, ChallongeAPIKey) VALUES (?, ?, (SELECT ChallongeAPIKey FROM User WHERE DiscordID = ?))', (user.id, username, user.id))
             self._conn.commit()
         except Exception as e:
             self._log_exc('set_username', e)
@@ -114,8 +112,7 @@ class DBAccess():
     def set_api_key(self, user, api_key):
         from encoding import encoder
         try:
-            self._c.execute('UPDATE User SET ChallongeAPIKey=? WHERE DiscordID=?',
-                            (encoder.encrypt(api_key), user.id))
+            self._c.execute('INSERT OR REPLACE INTO User (DiscordID, ChallongeAPIKey, ChallongeUserName) VALUES (?, ?, (SELECT ChallongeUserName FROM User WHERE DiscordID = ?))', (user.id, encoder.encrypt(api_key), user.id))
             self._conn.commit()
         except Exception as e:
             self._log_exc('set_api_key', e)
@@ -140,18 +137,12 @@ class DBAccess():
             self._log_exc('add_profile_log', e)
 
     def dump_profile(self):
-        self._c.execute("SELECT * FROM Profile")
+        self._c.execute('SELECT Name, total(Time) as Total, avg(Time), count(Time) FROM Profile GROUP BY Name ORDER BY Total DESC')
         rows = self._c.fetchall()
-        print(rows)
         return print_array('Profiling stats',
-                           profileFormatHeader.format('Start', 'Name', 'Time (ms)', 'Args', 'Server'),
+                           profileFormat.format('Name', 'Total (ms)', 'Average (ms)', 'Count'),
                            rows,
-                           lambda x: profileFormat.format(x[0],
-                                                          x[1],
-                                                          x[3],
-                                                          x[2],
-                                                          x[4] if x[4] else '-',
-                                                          x[5] if x[5] else '-'))
+                           lambda x: profileFormat.format(x[0], x[1], x[2], x[3]))
 
 
 db = DBAccess()

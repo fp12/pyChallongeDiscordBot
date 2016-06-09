@@ -75,12 +75,12 @@ class Command:
                 if givenParams < reqParamsExpected:
                     raise ContextValidationError_MissingParameters(reqParamsExpected, givenParams)
                 elif  self.attributes.challongeAccess == ChallongeAccess.RequiredForHost:
-                    acc = await get_account(get_tournament(message.channel).host_id)
+                    acc = await get_account(db.get_tournament(message.channel).host_id)
             else:
                 raise ContextValidationError_WrongChannel
         else:
             raise ContextValidationError_InsufficientPrivileges
-
+    
     def validate_name(self, name):
         if self.name == name:
             return True
@@ -96,7 +96,7 @@ class Command:
                 if self.attributes.challongeAccess == ChallongeAccess.RequiredForAuthor:
                     kwargs[x] = await get_account(message.author.id)
                 else:
-                    kwargs[x] = await get_account(get_tournament(message.channel).host_id)
+                    kwargs[x] = await get_account(db.get_tournament(message.channel).host_id)
             elif x == 'tournament_id':
                 kwargs[x] = db.get_tournament(message.channel).challonge_id
             elif x == 'tournament_role':

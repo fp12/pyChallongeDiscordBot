@@ -198,7 +198,6 @@ async def create(client, message, **kwargs):
         params['subdomain'] = kwargs.get('subdomain')
 
     try:
-        print(kwargs.get('account'))
         t = await kwargs.get('account').tournaments.create(kwargs.get('name'), kwargs.get('url'), tournament_type, **params)
     except ChallongeException as e:
         await client.send_message(message.channel, T_OnChallongeException.format(e))
