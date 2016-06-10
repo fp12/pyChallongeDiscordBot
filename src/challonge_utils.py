@@ -2,7 +2,7 @@ import asyncio
 import re
 from challonge import Account, ChallongeException
 from const import *
-
+import math
 
 def author_is_winner(csv_score):
     total_author = 0
@@ -98,6 +98,139 @@ async def update_score(account, t_id, m_id, score, winner_id):
     try:
         await account.matches.update(t_id, m_id, scores_csv=score, winner_id=winner_id)
     except ChallongeException as e:
-        return '', T_OnChallongeException.format(e)
+        return None, T_OnChallongeException.format(e)
     else:
         return '✅ These results have been uploaded to Challonge', None
+
+
+async def get_participants(account, t):
+    if 'participants' in t:
+        participants = t['participants']
+    else:
+        try:
+            participants = await account.participants.index(t['id'])
+        except ChallongeException as e:
+            return None, T_OnChallongeException.format(e)
+
+    return participants, None
+
+
+async def get_open_matches(account, t):
+    if 'matches' in t:
+        matches = t['matches']
+    else:
+        try:
+            matches = await account.matches.index(t['id'], state='open')
+        except ChallongeException as e:
+            return None, T_OnChallongeException.format(e)
+
+    return matches, None
+
+async def _get_channel_desc_pending(account, t):
+    desc = []
+    desc.append('Tournament {0} ({1}) is pending with {2} participants'.format(t['name'], t['full-challonge-url'], t['participants-count']))
+    if t['participants-count'] < 30:
+        participants, exc = await get_participants(account, t)
+        if exc:
+            return None, exc
+
+        desc.append('Registered participants:')
+        participantsCount = len(participants)
+        cols = 4
+        rows = math.ceil(participantsCount / cols)
+        participantsaArr = [[participants[x + y * cols]['name'] for x in range(cols) if x + y * cols < participantsCount] for y in range(rows)]
+        desc.append('\n'.join([' '.join(participantsaArr[y]) for y in range(rows)]))
+
+    return '\n'.join(desc), None
+
+
+async def _get_channel_desc_underway(account, t):
+    matchesrepr, Exc = await get_current_matches_repr(account, t)
+    if exc:
+        return None, exc
+
+    toReturn = 'Tournament {0} ({1}) is in progress with {2} participants\nOpen matches:\n{3}'.format(t['name'], t['full-challonge-url'], t['participants-count'], matchesrepr)
+    return toReturn, None
+
+
+async def _get_channel_desc_awaiting_review(account, t):
+    return 'Tournament is awaiting review from organizers', None
+
+
+async def _get_channel_desc_complete(account, t):
+    rankingRepr, exc = get_final_ranking_repr(account, t)
+    if exc:
+        return None, exc
+
+    return 'Tournament is finished!\n' + rankingRepr, None
+
+
+async def get_channel_desc(account, t):
+    if t['state'] == 'pending':
+        return await _get_channel_desc_pending(account, t)
+
+    if t['state'] == 'underway':
+        return await _get_channel_desc_underway(account, t)
+
+    if t['state'] == 'awaiting_review':
+        return await _get_channel_desc_awaiting_review(account, t)
+
+    if t['state'] == 'complete':
+        return await _get_channel_desc_complete(account, t)
+
+    print('[get_channel_desc] Unreferenced tournament state: ' + t['state'])
+    return None, None
+
+
+async def get_current_matches_repr(account, t):
+    matches, exc = await get_open_matches(account, t)
+    if exc:
+        return None, exc
+
+    participants, exc = await get_participants(account, t)
+    if exc:
+        return None, exc
+
+    matches = [m for m in t['matches'] if m['state'] == 'open']
+    matches.sort(key=match_sort_by_round)
+
+    if t['tournament-type'] == 'single elimination':
+        bracketType = 1
+    else:
+        bracketType = 0
+
+    desc = []
+    for m in matches:
+        if t['tournament-type'] in ['single elimination', 'double elimination']:
+            if m['round'] > 0 and bracketType != 1:
+                info.append('Winners bracket:')
+                bracketType = 1
+            elif m['round'] < 0 and bracketType != 2:
+                info.append('Losers bracket:')
+                bracketType = 2
+        else:
+            if bracketType == 0:
+                info.append('Open matches:')
+                bracketType = 1
+
+        p1 = [p for p in participants if p['id'] == om['player1-id']][0]
+        p2 = [p for p in participants if p['id'] == om['player2-id']][0]
+        desc.append('`{0}` 🆚 `{1}`'.format(p1['name'], p2['name']))
+    return '\n'.join(desc), None
+
+
+async def get_final_ranking_repr(account, t):
+    participants, exc = await get_participants(account, t)
+    if exc:
+        return None, exc
+
+    info = []
+    info.append('Final standings:')
+    participants.sort(key=player_sort_by_rank)
+    lastRank = 0
+    for p in participants:
+        if lastRank < p['final-rank']:
+            info.append('Position #%d' % p['final-rank'])
+            lastRank = p['final-rank']
+        info.append('\t' + p['name'])
+    return '\n'.join(info), None

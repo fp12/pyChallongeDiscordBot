@@ -49,3 +49,5 @@ T_DemoteError = cleandoc("""❌ Could not demote Member **{0.name}** because of 
     {1} could you remove Role 'Challonge' to this member? Thanks!""")
 
 T_RemoveChallongeRoleError = '❌ Could not remove role ' + C_RoleName + ' because of insufficient permissions.'
+
+T_ChannelDescriptionSeparator = '=-=-=-=\n'
