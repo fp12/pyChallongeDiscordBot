@@ -1,8 +1,10 @@
 import asyncio
 import re
 from challonge import Account, ChallongeException
+from challonge_accounts import TournamentState
 from const import *
 import math
+
 
 def author_is_winner(csv_score):
     total_author = 0
@@ -168,19 +170,33 @@ async def _get_channel_desc_complete(account, t):
 async def get_channel_desc(account, t):
     if t['state'] == 'pending':
         return await _get_channel_desc_pending(account, t)
-
     if t['state'] == 'underway':
         return await _get_channel_desc_underway(account, t)
-
     if t['state'] == 'awaiting_review':
         return await _get_channel_desc_awaiting_review(account, t)
-
     if t['state'] == 'complete':
         return await _get_channel_desc_complete(account, t)
 
     print('[get_channel_desc] Unreferenced tournament state: ' + t['state'])
     return None, None
 
+
+async def validate_tournament_state(account, t_id, state):
+    try:
+        t = await account.tournaments.show(t_id)
+    except ChallongeException as e:
+        raise e
+    else:
+        if t['state'] == 'pending' and state & TournamentState.Pending:
+            return True
+        if t['state'] == 'underway' and state & TournamentState.Underway:
+            return True
+        if t['state'] == 'awaiting_review' and state & TournamentState.AwaitingReview:
+            return True
+        if t['state'] == 'complete' and state & TournamentState.Complete:
+            return True
+
+        return False
 
 async def get_current_matches_repr(account, t):
     matches, exc = await get_open_matches(account, t)

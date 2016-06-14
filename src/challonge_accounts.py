@@ -10,6 +10,21 @@ class ChallongeAccess(Enum):
     RequiredForHost = 2
 
 
+class TournamentState(Enum):
+    Pending = 1 << 0
+    Underway = 1 << 1
+    AwaitingReview = 1 << 2
+    Complete = 1 << 3
+    NotComplete = Pending | Underway
+    Any = Pending | Underway | AwaitingReview | Complete
+
+    def __or__(self, other):
+        return self.value | other.value
+
+    def __and__(self, other):
+        return self.value & other.value
+
+
 class UserNotFound(Exception):
     def __str__(self):
         return '❌ User not found'

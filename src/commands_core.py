@@ -1,7 +1,8 @@
 import asyncio
 from permissions import Permissions, get_permissions
 from channel_type import ChannelType, get_channel_type
-from challonge_accounts import ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet, InvalidCredentials, get as get_account
+from challonge_accounts import ChallongeAccess, TournamentState, UserNotFound, UserNameNotSet, APIKeyNotSet, InvalidCredentials, get as get_account
+from challonge_utils import validate_tournament_state
 from db_access import db
 import discord
 from const import *
@@ -17,6 +18,9 @@ class ContextValidationError_MissingParameters(Exception):
         self.req = req
         self.given = given
 
+    def __str__(self):
+        return T_ValidateCommandContext_BadParameters.format(self.req, self.given)
+
 
 class ContextValidationError_WrongChannel(Exception):
     def __str__(self):
@@ -28,11 +32,17 @@ class ContextValidationError_InsufficientPrivileges(Exception):
         return T_ValidateCommandContext_BadPrivileges
 
 
+class BadTournamentState(Exception):
+    def __str__(self):
+        return T_ValidateCommandContext_BadTournamentState
+
+
 class Attributes:
     def __init__(self, **kwargs):
         self.minPermissions = kwargs.get('minPermissions', Permissions.User)
         self.channelRestrictions = kwargs.get('channelRestrictions', ChannelType.Other)
         self.challongeAccess = kwargs.get('challongeAccess', ChallongeAccess.NotRequired)
+        self.tournamentState = kwargs.get('tournamentState', None)
 
 
 class Command:
@@ -70,17 +80,22 @@ class Command:
         if authorPerms >= self.attributes.minPermissions:
             channelType = get_channel_type(message.channel)
             if channelType == ChannelType.Dev or channelType & self.attributes.channelRestrictions:
+                if self.attributes.challongeAccess == ChallongeAccess.RequiredForHost:
+                    db_t = db.get_tournament(message.channel)
+                    acc = await get_account(db_t.host_id)  # can raise
+                    if self.attributes.tournamentState:
+                        if not await validate_tournament_state(acc, db_t.challonge_id, self.attributes.tournamentState):  # can raise
+                            raise BadTournamentState
+
                 reqParamsExpected = 0 if self.reqParams is None else len(self.reqParams)
                 givenParams = len(postCommand)
                 if givenParams < reqParamsExpected:
                     raise ContextValidationError_MissingParameters(reqParamsExpected, givenParams)
-                elif  self.attributes.challongeAccess == ChallongeAccess.RequiredForHost:
-                    acc = await get_account(db.get_tournament(message.channel).host_id)
             else:
                 raise ContextValidationError_WrongChannel
         else:
             raise ContextValidationError_InsufficientPrivileges
-    
+
     def validate_name(self, name):
         if self.name == name:
             return True
@@ -193,15 +208,16 @@ class CommandsHandler:
             return None, None
 
     async def try_execute(self, client, message):
-        command, postCommand = self._get_command_and_postcommand(client, message)
+        command, postCommand = self._get_command_and_postcommand(
+            client, message)
 
         if command:
             try:
                 await command.validate_context(client, message, postCommand)
-            except ContextValidationError_MissingParameters as e:
-                await client.send_message(message.channel, T_ValidateCommandContext_BadParameters.format(command.name, e.req, e.given))
-            except (ContextValidationError_WrongChannel,
+            except (ContextValidationError_MissingParameters,
+                    ContextValidationError_WrongChannel,
                     ContextValidationError_InsufficientPrivileges,
+                    BadTournamentState,
                     UserNotFound,
                     UserNameNotSet,
                     APIKeyNotSet,
@@ -214,15 +230,21 @@ class CommandsHandler:
                                                     message,
                                                     'PM' if message.channel.is_private else '{0.channel.server.name}/#{0.channel.name}'.format(message)))
 
-    def get_authorized_commands(self, client, message):
+    async def get_authorized_commands(self, client, message):
+        cs = []
         for command in self._commands:
             try:
-                command.validate_context(client, message, [])
-            except (ContextValidationError_WrongChannel, ContextValidationError_InsufficientPrivileges):
+                await command.validate_context(client, message, [])
+            except (ContextValidationError_WrongChannel,
+                    ContextValidationError_InsufficientPrivileges,
+                    BadTournamentState):
                 continue
-            except:
+            except ContextValidationError_MissingParameters:
                 pass
-            yield command
+            except:
+                continue
+            cs.append(command)
+        return cs
 
     def dump(self):
         return utils.print_array('Commands registered',
@@ -232,10 +254,8 @@ class CommandsHandler:
                                                                 c.attributes.minPermissions.name,
                                                                 c.attributes.channelRestrictions.name,
                                                                 'True' if c.attributes.challongeAccess == ChallongeAccess.Required else 'False',
-                                                                '-' if len(c.aliases) == 0 else '/'.join(
-                                                                    c.aliases),
-                                                                '-' if len(c.reqParams) == 0 else '/'.join(
-                                                                    c.reqParams),
+                                                                '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
+                                                                '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams),
                                                                 '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
 
 
