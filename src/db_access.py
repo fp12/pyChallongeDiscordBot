@@ -48,6 +48,13 @@ class DBAccess():
         self._c.execute("SELECT * FROM Server WHERE DiscordID=?", (server.id,))
         return DBServer(self._c.fetchone())
 
+    def set_server_trigger(self, server, trigger):
+        try:
+            self._c.execute("UPDATE Server SET Trigger=? WHERE DiscordID=?", (trigger, server.id))
+            self._conn.commit()
+        except Exception as e:
+            self._log_exc('set_server_trigger', e)
+
     def dump_servers(self):
         self._c.execute("SELECT * FROM Server")
         rows = self._c.fetchall()
@@ -69,31 +76,27 @@ class DBAccess():
 
     def remove_tournament(self, challongeId):
         try:
-            self._c.execute(
-                'DELETE FROM Tournament WHERE ChallongeID=?', (challongeId,))
+            self._c.execute('DELETE FROM Tournament WHERE ChallongeID=?', (challongeId,))
             self._conn.commit()
         except Exception as e:
             self._log_exc('remove_tournament', e)
 
     def remove_all_tournaments(self, server):
         try:
-            self._c.execute(
-                'DELETE FROM Tournament WHERE ServerID=?', (server.id,))
+            self._c.execute('DELETE FROM Tournament WHERE ServerID=?', (server.id,))
             self._conn.commit()
         except Exception as e:
             self._log_exc('remove_all_tournaments', e)
 
     def get_tournament(self, channel):
-        self._c.execute(
-            "SELECT * FROM Tournament WHERE ChannelID=?", (channel.id,))
+        self._c.execute("SELECT * FROM Tournament WHERE ChannelID=?", (channel.id,))
         return DBTournament(self._c.fetchone())
 
     # Users
 
     def add_user(self, user):
         try:
-            self._c.execute(
-                'INSERT INTO User(DiscordID) VALUES(?)', (user.id, ))
+            self._c.execute('INSERT INTO User(DiscordID) VALUES(?)', (user.id, ))
             self._conn.commit()
         except Exception as e:
             self._log_exc('add_user', e)

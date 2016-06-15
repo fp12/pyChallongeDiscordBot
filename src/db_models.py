@@ -3,7 +3,7 @@ class DBServer():
         if tup:
             self._tup = tup
         else:
-            self._tup = (None, None, None)
+            self._tup = (None, None, None, None)
 
     @property
     def server_id(self):
@@ -16,6 +16,10 @@ class DBServer():
     @property
     def management_channel_id(self):
         return self._tup[2]
+
+    @property
+    def trigger(self):
+        return self._tup[3]
 
 
 class DBTournament():

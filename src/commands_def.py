@@ -94,6 +94,22 @@ async def ping(client, message, **kwargs):
     await client.send_message(message.channel, '✅ pong! `{0:.3f}`s'.format(timeSpent.total_seconds()))
 
 
+@optional_args('trigger')
+@commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
+async def trigger(client, message, **kwargs):
+    """Set/Unset a trigger command for the bot
+    Since you may use several bots on your server, the Challonge allows you to set its own trigger
+    Note: it is always possible to trigger it via a direct mention (@Challonge)
+    Optional Argument:
+    trigger -- the string to trigger bot actions
+    """
+    db.set_server_trigger(message.server, kwargs.get('trigger'))
+    if kwargs.get('trigger'):
+        await client.send_message(message.channel, '✅ You can now trigger the bot with `{0}` (or a mention) on this server'.format(kwargs.get('trigger')))
+    else:
+        await client.send_message(message.channel, '✅ You can now only trigger the bot with a mention on this server')
+
+
 @required_args('member')
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
 async def promote(client, message, **kwargs):

@@ -21,6 +21,7 @@ CREATE TABLE "Server" (
 	`DiscordID`	TEXT NOT NULL UNIQUE,
 	`OwnerID`	TEXT NOT NULL,
 	`ManagementChannelID`	TEXT NOT NULL,
+	`Trigger` TEXT,
 	PRIMARY KEY(DiscordID)
 );
 CREATE TABLE "Profile" (

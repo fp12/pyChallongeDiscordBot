@@ -9,7 +9,7 @@ from const import *
 import utils
 from profiling import Profiler, Scope, profile, profile_async
 
-commandTrigger = '>>>'
+
 commandFormat = '| {0:17}| {1:16}| {2:13}| {3:11}| {4:20}| {5:20}| {6:20}|'
 
 
@@ -76,10 +76,10 @@ class Command:
 
     async def validate_context(self, client, message, postCommand):
         if get_permissions(message.author, message.channel) < self.attributes.minPermissions:
-            return False, InsufficientPrivileges
+            return False, InsufficientPrivileges()
 
         if not get_channel_type(message.channel) & self.attributes.channelRestrictions:
-            return False, WrongChannel
+            return False, WrongChannel()
 
         if self.attributes.challongeAccess == ChallongeAccess.RequiredForAuthor:
             acc, exc = await get_account(message.author.id)
@@ -92,7 +92,7 @@ class Command:
                 return False, exc
             if acc and self.attributes.tournamentState:
                 if not await validate_tournament_state(acc, db_t.challonge_id, self.attributes.tournamentState):  # can raise
-                    return False, BadTournamentState
+                    return False, BadTournamentState()
 
         reqParamsExpected = len(self.reqParams)
         givenParams = len(postCommand)
@@ -190,6 +190,7 @@ class CommandsHandler:
 
     def _get_command_and_postcommand(self, client, message):
         split = message.content.split()
+        commandTrigger = db.get_server(message.server).trigger
 
         if message.channel.is_private:
             if split[0] == commandTrigger:
