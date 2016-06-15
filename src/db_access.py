@@ -23,7 +23,7 @@ class DBAccess():
 
     def add_server(self, server, channel):
         try:
-            self._c.execute('INSERT INTO Server VALUES(?, ?, ?)',
+            self._c.execute('INSERT INTO Server (DiscordID, OwnerID, ManagementChannelID) VALUES(?, ?, ?)',
                             (server.id, server.owner.id, channel.id))
             self._conn.commit()
         except Exception as e:

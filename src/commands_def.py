@@ -188,7 +188,7 @@ async def key(client, message, **kwargs):
     Optional Argument:
     key -- the Challonge API key
     """
-    if len(kwargs.get('key')) % 8 != 0:
+    if kwargs.get('key') and len(kwargs.get('key')) % 8 != 0:
         await client.send_message(message.author, '❌ Error: please check again your key')
     else:
         db.set_api_key(message.author, kwargs.get('key'))
