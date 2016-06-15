@@ -108,7 +108,7 @@ class Command:
             return name in self.aliases
         return False
 
-    async def _fetch_helpers(self, message):
+    async def _fetch_helpers(self, message, postCommand):
         kwargs = {}
         for x in self.helpers:
             if x == 'account':
@@ -126,6 +126,8 @@ class Command:
                 kwargs[x] = discord.utils.find(lambda c: c.id == channelid, message.server.channels)
             elif x == 'participant_username':
                 kwargs[x] = db.get_user(message.author.id).user_name
+            elif x == 'announcement':
+                kwargs[x] = ' '.join(postCommand)
 
         return kwargs
 
@@ -145,8 +147,7 @@ class Command:
     async def execute(self, client, message, postCommand):
         kwargs = {}
         kwargs.update(self._fetch_args(postCommand))
-        kwargs.update(await self._fetch_helpers(message))
-
+        kwargs.update(await self._fetch_helpers(message, postCommand))
         await self.cb(client, message, **kwargs)
 
     def pretty_print(self):
@@ -209,8 +210,7 @@ class CommandsHandler:
             return None, None
 
     async def try_execute(self, client, message):
-        command, postCommand = self._get_command_and_postcommand(
-            client, message)
+        command, postCommand = self._get_command_and_postcommand(client, message)
 
         if command:
             try:
@@ -259,7 +259,6 @@ class AuthorizedCommandsWrapper:
             raise StopAsyncIteration
         else:
             validated, exc = await command.validate_context(self._client, self._message, [])
-            #print(validated, exc)
             if validated or isinstance(exc, MissingParameters):
                 return command.simple_print()
             else:

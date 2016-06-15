@@ -78,11 +78,19 @@ async def dump(client, message, **kwargs):
             await client.send_message(message.author, decorate(page))
 
 
+@helpers('announcement')
+@commands.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Private)
+async def announce(client, message, **kwargs):
+    for owner_id in db.get_servers_owners():
+        await client.send_message(discord.User(id=owner_id), 'Message from bot author: ```ruby\n{0}```'.format(kwargs.get('announcement')))
+
+
 # SERVER OWNER
+
 
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Any)
 async def ping(client, message, **kwargs):
-    timeSpent = datetime.now() - message.timestamp + timedelta(hours=4)  #uct correction
+    timeSpent = datetime.now() - message.timestamp + timedelta(hours=4) # uct correction
     await client.send_message(message.channel, '✅ pong! `{0:.3f}`s'.format(timeSpent.total_seconds()))
 
 
