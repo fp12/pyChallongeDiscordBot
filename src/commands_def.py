@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 
 # cloudconvertapi = cloudconvert.Api(appConfig['cloudconvert'])
 
+
 def get_member(name, server):
     member_id = utils.get_user_id_from_mention(name)
     if member_id == 0:
@@ -81,7 +82,7 @@ async def dump(client, message, **kwargs):
 
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Any)
 async def ping(client, message, **kwargs):
-    timeSpent = datetime.now() - message.timestamp + timedelta(hours=4)  #  uct correction
+    timeSpent = datetime.now() - message.timestamp + timedelta(hours=4)  #uct correction
     await client.send_message(message.channel, '✅ pong! `{0:.3f}`s'.format(timeSpent.total_seconds()))
 
 
@@ -155,12 +156,12 @@ async def leaveserver(client, message, **kwargs):
 # ORGANIZER
 
 
-@required_args('key')
+@optional_args('key')
 @commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Private)
 async def key(client, message, **kwargs):
     """Store your Challonge API key
     Look for it here: https://challonge.com/settings/developer
-    Argument:
+    Optional Argument:
     key -- the Challonge API key
     """
     if len(kwargs.get('key')) % 8 != 0:
@@ -298,6 +299,7 @@ async def start(client, message, **kwargs):
             print ("Error: %s - %s." % (e.filename,e.strerror))
         """
 
+
 @helpers('account', 'tournament_id')
 @commands.register(minPermissions=Permissions.Organizer,
                    channelRestrictions=ChannelType.Tournament,
@@ -329,7 +331,7 @@ async def checkin_setup(client, message, **kwargs):
     Required Arguments:
     date -- date of the tournament: YYYY/MM/DD
     time -- time of the tournament: HH:MM (24h format)
-    duration -- length of the participant check-in window in minutes. 
+    duration -- length of the participant check-in window in minutes.
     """
     # verify date
     date = get_date(kwargs.get('date'))
@@ -453,7 +455,6 @@ async def destroy(client, message, **kwargs):
         channelId = db.get_server(message.server).management_channel_id
         await client.send_message(discord.Channel(server=message.server, id=channelId), '✅ Tournament {0} has been destroyed by {1}!'.format(t['name'], message.author.mention))
         db.remove_tournament(kwargs.get('tournament_id'))
-
 
 
 @helpers('account', 'tournament_id')
@@ -760,12 +761,12 @@ async def help(client, message, **kwargs):
     command -- the command you want more info on
     """
     commandName = kwargs.get('command')
-    if commandName is not None:
+    if commandName:
         command = commands.find(commandName)
-        if command is not None:
+        if command:
             try:
                 command.validate_context(client, message, [])
-            except (ContextValidationError_InsufficientPrivileges, ContextValidationError_WrongChannel):
+            except (InsufficientPrivileges, WrongChannel):
                 await client.send_message(message.channel, '❌ Invalid command or you can\'t use it on this channel')
                 return
             except:
@@ -776,9 +777,8 @@ async def help(client, message, **kwargs):
             await client.send_message(message.channel, '❌ Inexistent command or you don\'t have enough privileges to use it')
     else:
         commandsStr = []
-        authorized_commands = await commands.get_authorized_commands(client, message)
-        for c in authorized_commands:
-            commandsStr.append(c.simple_print())
+        async for c in AuthorizedCommandsWrapper(client, message):
+            commandsStr.append(c)
         await client.send_message(message.channel, 'Usable commands for you in this channel:\n' + '\n'.join(commandsStr))
 
 

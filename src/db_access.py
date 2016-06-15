@@ -5,7 +5,7 @@ from utils import *
 
 serverFormat = '| {0:19}| {1:19}| {2:19}|'
 userFormat = '| {0:19}| {1:19}| {2:15}|'
-profileFormat = '| {0:25}| {1:35}| {2:10}| {3:30}|'
+profileFormat = '| {0:45}| {1:12} | {2:10} | {3:5} |'
 
 
 class DBAccess():
@@ -142,7 +142,7 @@ class DBAccess():
         return print_array('Profiling stats',
                            profileFormat.format('Name', 'Average (ms)', 'Total (ms)', 'Count'),
                            rows,
-                           lambda x: profileFormat.format(x[0], x[1], x[2], x[3]))
+                           lambda x: profileFormat.format(x[0], round(x[1], 2), round(x[2], 2), x[3]))
 
 
 db = DBAccess()

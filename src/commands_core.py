@@ -13,7 +13,7 @@ commandTrigger = '>>>'
 commandFormat = '| {0:17}| {1:16}| {2:13}| {3:11}| {4:20}| {5:20}| {6:20}|'
 
 
-class ContextValidationError_MissingParameters(Exception):
+class MissingParameters(Exception):
     def __init__(self, req, given):
         self.req = req
         self.given = given
@@ -22,12 +22,12 @@ class ContextValidationError_MissingParameters(Exception):
         return T_ValidateCommandContext_BadParameters.format(self.req, self.given)
 
 
-class ContextValidationError_WrongChannel(Exception):
+class WrongChannel(Exception):
     def __str__(self):
         return T_ValidateCommandContext_BadChannel
 
 
-class ContextValidationError_InsufficientPrivileges(Exception):
+class InsufficientPrivileges(Exception):
     def __str__(self):
         return T_ValidateCommandContext_BadPrivileges
 
@@ -55,6 +55,9 @@ class Command:
         self.optParams = []
         self.helpers = []
 
+    def __repr__(self):
+        return '[Command:%s]' % self.name
+
     def add_required_params(self, *args):
         self.reqParams = args
         return self
@@ -71,30 +74,32 @@ class Command:
         self.helpers = args
         return self
 
-    @profile_async(Scope.Core)
     async def validate_context(self, client, message, postCommand):
+        if get_permissions(message.author, message.channel) < self.attributes.minPermissions:
+            return False, InsufficientPrivileges
+
+        if not get_channel_type(message.channel) & self.attributes.channelRestrictions:
+            return False, WrongChannel
+
         if self.attributes.challongeAccess == ChallongeAccess.RequiredForAuthor:
-            acc = await get_account(message.author.id)  # can raise
+            acc, exc = await get_account(message.author.id)
+            if exc:
+                return False, exc
+        elif self.attributes.challongeAccess == ChallongeAccess.RequiredForHost:
+            db_t = db.get_tournament(message.channel)
+            acc, exc = await get_account(db_t.host_id)
+            if exc:
+                return False, exc
+            if acc and self.attributes.tournamentState:
+                if not await validate_tournament_state(acc, db_t.challonge_id, self.attributes.tournamentState):  # can raise
+                    return False, BadTournamentState
 
-        authorPerms = get_permissions(message.author, message.channel)
-        if authorPerms >= self.attributes.minPermissions:
-            channelType = get_channel_type(message.channel)
-            if channelType == ChannelType.Dev or channelType & self.attributes.channelRestrictions:
-                if self.attributes.challongeAccess == ChallongeAccess.RequiredForHost:
-                    db_t = db.get_tournament(message.channel)
-                    acc = await get_account(db_t.host_id)  # can raise
-                    if self.attributes.tournamentState:
-                        if not await validate_tournament_state(acc, db_t.challonge_id, self.attributes.tournamentState):  # can raise
-                            raise BadTournamentState
+        reqParamsExpected = len(self.reqParams)
+        givenParams = len(postCommand)
+        if givenParams < reqParamsExpected:
+            return False, MissingParameters(reqParamsExpected, givenParams)
 
-                reqParamsExpected = 0 if self.reqParams is None else len(self.reqParams)
-                givenParams = len(postCommand)
-                if givenParams < reqParamsExpected:
-                    raise ContextValidationError_MissingParameters(reqParamsExpected, givenParams)
-            else:
-                raise ContextValidationError_WrongChannel
-        else:
-            raise ContextValidationError_InsufficientPrivileges
+        return True, None
 
     def validate_name(self, name):
         if self.name == name:
@@ -103,15 +108,14 @@ class Command:
             return name in self.aliases
         return False
 
-    @profile(Scope.Core)
     async def _fetch_helpers(self, message):
         kwargs = {}
         for x in self.helpers:
             if x == 'account':
                 if self.attributes.challongeAccess == ChallongeAccess.RequiredForAuthor:
-                    kwargs[x] = await get_account(message.author.id)
+                    kwargs[x], exc = await get_account(message.author.id)
                 else:
-                    kwargs[x] = await get_account(db.get_tournament(message.channel).host_id)
+                    kwargs[x], exc = await get_account(db.get_tournament(message.channel).host_id)
             elif x == 'tournament_id':
                 kwargs[x] = db.get_tournament(message.channel).challonge_id
             elif x == 'tournament_role':
@@ -125,7 +129,6 @@ class Command:
 
         return kwargs
 
-    @profile(Scope.Core)
     def _fetch_args(self, postCommand):
         kwargs = {}
 
@@ -152,8 +155,8 @@ class Command:
 
     def simple_print(self):
         return '`{0}` {1}{2} -- *{3}*'.format(self.name,
-                                              ' ' if len(self.reqParams) == 0 else ' '.join(['[' + p + ']' for p in self.reqParams]),
-                                              ' ' if len(self.optParams) == 0 else ' '.join(['{' + p + '}' for p in self.optParams]),
+                                              '' if len(self.reqParams) == 0 else ' '.join(['[' + p + ']' for p in self.reqParams]),
+                                              '' if len(self.optParams) == 0 else ' '.join(['{' + p + '}' for p in self.optParams]),
                                               'No description available' if self.cb.__doc__ is None else self.cb.__doc__.splitlines()[0])
 
 
@@ -165,7 +168,6 @@ class CommandsHandler:
         self._commands.append(command)
         return command
 
-    @profile(Scope.Core)
     def find(self, name):
         for command in self._commands:
             if command.validate_name(name):
@@ -185,7 +187,6 @@ class CommandsHandler:
             return self._add(Command(func.__name__, wrapper, Attributes(**attributes)))
         return decorator
 
-    @profile(Scope.Core)
     def _get_command_and_postcommand(self, client, message):
         split = message.content.split()
 
@@ -213,53 +214,56 @@ class CommandsHandler:
 
         if command:
             try:
-                await command.validate_context(client, message, postCommand)
-            except (ContextValidationError_MissingParameters,
-                    ContextValidationError_WrongChannel,
-                    ContextValidationError_InsufficientPrivileges,
-                    BadTournamentState,
-                    UserNotFound,
-                    UserNameNotSet,
-                    APIKeyNotSet,
-                    InvalidCredentials) as e:
-                await client.send_message(message.channel, e)
+                validated, exc = await command.validate_context(client, message, postCommand)
+            except Exception as e:
+                print('[CommandsHandler.try_execute] {message: {0}} {Exception: {1}}'.format(message.content, e))
             else:
-                await command.execute(client, message, postCommand)
-                print(T_Log_ValidatedCommand.format(command.name,
-                                                    '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand),
-                                                    message,
-                                                    'PM' if message.channel.is_private else '{0.channel.server.name}/#{0.channel.name}'.format(message)))
-
-    async def get_authorized_commands(self, client, message):
-        cs = []
-        for command in self._commands:
-            try:
-                await command.validate_context(client, message, [])
-            except (ContextValidationError_WrongChannel,
-                    ContextValidationError_InsufficientPrivileges,
-                    BadTournamentState):
-                continue
-            except ContextValidationError_MissingParameters:
-                pass
-            except:
-                continue
-            cs.append(command)
-        return cs
+                if exc:
+                    await client.send_message(message.channel, exc)
+                elif validated:
+                    await command.execute(client, message, postCommand)
+                    print(T_Log_ValidatedCommand.format(command.name,
+                                                        '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand),
+                                                        message,
+                                                        'PM' if message.channel.is_private else '{0.channel.server.name}/#{0.channel.name}'.format(message)))
 
     def dump(self):
-        return utils.print_array('Commands registered',
+        return utils.print_array('Commands Registered',
                                  commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Challonge', 'Aliases', 'Required Args', 'Optional Args'),
                                  self._commands,
                                  lambda c: commandFormat.format(c.name,
                                                                 c.attributes.minPermissions.name,
                                                                 c.attributes.channelRestrictions.name,
-                                                                'True' if c.attributes.challongeAccess == ChallongeAccess.Required else 'False',
+                                                                c.attributes.challongeAccess.name,
                                                                 '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
                                                                 '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams),
                                                                 '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
 
 
 commands = CommandsHandler()
+
+
+class AuthorizedCommandsWrapper:
+    def __init__(self, client, message):
+        self._client = client
+        self._message = message
+        self._commands = iter(commands._commands)
+
+    async def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            command = next(self._commands)
+        except StopIteration:
+            raise StopAsyncIteration
+        else:
+            validated, exc = await command.validate_context(self._client, self._message, [])
+            #print(validated, exc)
+            if validated or isinstance(exc, MissingParameters):
+                return command.simple_print()
+            else:
+                return await self.__anext__()
 
 
 def required_args(*args):
