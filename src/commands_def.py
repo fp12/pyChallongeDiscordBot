@@ -168,34 +168,18 @@ async def leaveserver(client, message, **kwargs):
     """
     channelId = db.get_server(message.server).management_channel_id
     await client.delete_channel(discord.Channel(server=message.server, id=channelId))
-    roles = [x for x in message.server.me.roles if x.name == C_RoleName]
-    if len(roles) == 1:
-        try:
-            await client.delete_role(message.server, roles[0])
-        except discord.errors.Forbidden:
-            await client.send_message(message.server.owner, T_RemoveChallongeRoleError)
+    for r in message.server.me.roles:
+        if x.name == C_RoleName:
+            try:
+                await client.delete_role(message.server, roles[0])
+            except discord.errors.HTTPException as e:
+                await client.send_message(message.server.owner, T_RemoveChallongeRoleError.format(e))
+            else:
+                break
     await client.leave_server(message.server)
 
 
 # ORGANIZER
-
-
-@optional_args('key')
-@commands.register(minPermissions=Permissions.Organizer, channelRestrictions=ChannelType.Private)
-async def key(client, message, **kwargs):
-    """Store your Challonge API key
-    Look for it here: https://challonge.com/settings/developer
-    Optional Argument:
-    key -- the Challonge API key
-    """
-    if kwargs.get('key') and len(kwargs.get('key')) % 8 != 0:
-        await client.send_message(message.author, '❌ Error: please check again your key')
-    else:
-        db.set_api_key(message.author, kwargs.get('key'))
-        if kwargs.get('key'):
-            await client.send_message(message.author, '✅ Thanks, your key has been encrypted and stored on our server!')
-        else:
-            await client.send_message(message.author, '✅ Thanks, your key has been removed from our server!')
 
 
 @helpers('account')
@@ -768,18 +752,36 @@ async def undocheckin(client, message, **kwargs):
 @required_args('username')
 @commands.register(channelRestrictions=ChannelType.Any)
 async def username(client, message, **kwargs):
-    """Sets your Challonge username
-    Argument:
+    """Set your Challonge username
+    Required Argument:
     username -- If you don't have one, you can sign up here for free https://challonge.com/users/new
     """
     db.set_username(message.author, kwargs.get('username'))
     await client.send_message(message.channel, '✅ Your username \'{}\' has been set!'.format(kwargs.get('username')))
 
 
+@optional_args('key')
+@commands.register(channelRestrictions=ChannelType.Private)
+async def key(client, message, **kwargs):
+    """Store your Challonge API key
+    Look for it here: https://challonge.com/settings/developer
+    Optional Argument:
+    key -- the Challonge API key
+    """
+    if kwargs.get('key') and len(kwargs.get('key')) % 8 != 0:
+        await client.send_message(message.author, '❌ Error: please check again your key')
+    else:
+        db.set_api_key(message.author, kwargs.get('key'))
+        if kwargs.get('key'):
+            await client.send_message(message.author, '✅ Thanks, your key has been encrypted and stored on our server!')
+        else:
+            await client.send_message(message.author, '✅ Thanks, your key has been removed from our server!')
+
+
 @optional_args('command')
-@commands.register(minPermissions=Permissions.User, channelRestrictions=ChannelType.Any)
+@commands.register(channelRestrictions=ChannelType.Any)
 async def help(client, message, **kwargs):
-    """Gets help on usable commands
+    """Get help on usable commands
     If no argument is provided, a concise list of usable commands will be displayed
     Optional Argument:
     command -- the command you want more info on
@@ -789,7 +791,7 @@ async def help(client, message, **kwargs):
         command = commands.find(commandName)
         if command:
             try:
-                command.validate_context(client, message, [])
+                await command.validate_context(client, message, [])
             except (InsufficientPrivileges, WrongChannel):
                 await client.send_message(message.channel, '❌ Invalid command or you can\'t use it on this channel')
                 return
@@ -803,7 +805,7 @@ async def help(client, message, **kwargs):
         commandsStr = []
         async for c in AuthorizedCommandsWrapper(client, message):
             commandsStr.append(c)
-        await client.send_message(message.channel, 'Usable commands for you in this channel:\n' + '\n'.join(commandsStr))
+        await client.send_message(message.channel, T_HelpGlobal.format('\n  '.join(commandsStr)))
 
 
 @helpers('account', 'tournament_id', 'participant_username', 'tournament_role')
@@ -830,7 +832,6 @@ async def join(client, message, **kwargs):
         # TODO more info
 
 
-@required_args('feedback')
-@commands.register(channelRestrictions=ChannelType.Private)
-async def feedback(client, message, **kwArgs):
-    await client.send_message(message.channel, 'feedback')
+@commands.register(channelRestrictions=ChannelType.Any)
+async def info(client, message, **kwArgs):
+    await client.send_message(message.channel, T_Info)

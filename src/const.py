@@ -49,6 +49,26 @@ T_PromoteError = cleandoc("""❌ Could not promote Member **{0.name}** because o
 T_DemoteError = cleandoc("""❌ Could not demote Member **{0.name}** because of insufficient permissions.
     {1} could you remove Role 'Challonge' to this member? Thanks!""")
 
-T_RemoveChallongeRoleError = '❌ Could not remove role ' + C_RoleName + ' because of insufficient permissions.'
+T_RemoveChallongeRoleError = '❌ Could not remove role ' + C_RoleName + ' because of: `{0}`'
 
 T_ChannelDescriptionSeparator = '=-=-=-=\n'
+
+T_HelpGlobal = cleandoc("""```ruby
+    Usable Commands For You In This Channel
+    ```
+      {0}
+
+    ```ruby
+    [argument] >> Required Argument
+    {{argument}} >> Optional Argument
+    (do not type '[]' nor '{{}}')
+    Note: some commands may only be available in Private Message. Send 'help' there too!
+    ```""")
+
+T_Info = cleandoc("""
+    **Challonge Bot** by fp12
+    Version: v.0.9.0
+    Invite the bot into your server: https://discordapp.com/oauth2/authorize?client_id=183236147726516225&scope=bot&permissions=335670288
+    Join the server to discuss further improvements, report bugs and more!
+    https://discord.gg/0142k6dfba0Je6qo0
+    """)

@@ -1,5 +1,6 @@
 import re
 
+
 def print_array(title, header, iterable, func):
     vertSep = '|'
     arraySep = '='

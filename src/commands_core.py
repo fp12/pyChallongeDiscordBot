@@ -190,20 +190,22 @@ class CommandsHandler:
 
     def _get_command_and_postcommand(self, client, message):
         split = message.content.split()
-        commandTrigger = db.get_server(message.server).trigger
+        if len(split) == 0:
+            return None, None
+
+        command = None
 
         if message.channel.is_private:
-            if split[0] == commandTrigger:
-                command = self.find(split[1])
-                offset = 2
-            else:
-                command = self.find(split[0])
-                offset = 1
-        elif split[0] == commandTrigger or client.user in message.mentions:
-            command = self.find(split[1])
-            offset = 2
+            command = self.find(split[0])
+            offset = 1
         else:
-            command = None
+            commandTrigger = db.get_server(message.server).trigger
+            if len(split) <= 1:
+                return None, None
+            if split[0] == commandTrigger or client.user in message.mentions:
+                if len(split) > 1:
+                    command = self.find(split[1])
+                    offset = 2
 
         if command:
             return command, split[offset:len(split)]
@@ -217,7 +219,7 @@ class CommandsHandler:
             try:
                 validated, exc = await command.validate_context(client, message, postCommand)
             except Exception as e:
-                print('[CommandsHandler.try_execute] {message: {0}} {Exception: {1}}'.format(message.content, e))
+                print('[CommandsHandler.try_execute] [message: {0}] [Exception: {1}]'.format(message.content, e))
             else:
                 if exc:
                     await client.send_message(message.channel, exc)

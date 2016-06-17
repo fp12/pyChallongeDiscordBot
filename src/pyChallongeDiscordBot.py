@@ -15,8 +15,7 @@ client = discord.Client()
 
 @profile_async(Scope.Core)
 async def greet_new_server(server):
-    print(T_Log_JoinedServer.format(server.name,
-                                    server.id, server.owner.name, server.owner.id))
+    print(T_Log_JoinedServer.format(server.name, server.id, server.owner.name, server.owner.id))
 
     db.add_user(server.owner)
 
@@ -66,7 +65,20 @@ async def on_challonge_role_assigned(server, chRole):
 
     db.add_server(server, chChannel)
 
-    await client.edit_channel_permissions(chChannel, chRole)
+    deny = discord.Permissions.none()
+    deny.send_messages = True
+    deny.read_messages = True
+    await client.edit_channel_permissions(chChannel, server.default_role, deny=deny)
+
+    allow = discord.Permissions.none()
+    allow.send_messages = True
+    allow.read_messages = True
+    allow.manage_messages = True
+    allow.embed_links = True
+    allow.attach_files = True
+    allow.read_message_history = True
+    allow.manage_channel = True
+    await client.edit_channel_permissions(chChannel, chRole, allow=allow)
 
     # notify owner
     owner = db.get_user(server.owner.id)
