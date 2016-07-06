@@ -14,6 +14,9 @@ import string
 from config import appConfig
 import os
 from datetime import datetime, timedelta
+from module import modules
+import urllib.request
+import events
 
 # cloudconvertapi = cloudconvert.Api(appConfig['cloudconvert'])
 
@@ -86,6 +89,21 @@ async def announce(client, message, **kwargs):
 
 
 # SERVER OWNER
+
+
+@required_args('module')
+@commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Mods)
+async def module(client, message, **kwargs):
+    print(modules)
+    try:
+        f = urllib.request.urlopen('http://hastebin.com/raw/%s' % kwargs.get('module'))
+    except urllib.error.HTTPError as e:
+        await client.send_message(message.channel, '❌ Something went wrong while setting module... %s' % e)
+    else:
+        if modules.load_from_raw(f.read().decode("utf-8"), message.server.id):
+            await client.send_message(message.channel, '✅ Module has been set!')
+        else:
+            await client.send_message(message.channel, '❌ Something went wrong while setting module...')
 
 
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Any)
@@ -828,6 +846,7 @@ async def join(client, message, **kwargs):
         except ChallongeException as e:
             await client.send_message(message.author, T_OnChallongeException.format(e))
         else:
+            modules.on_event(Events.on_join, p1_name=message.author.name, t_name=t['name'], me=message.server.me)
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         # TODO more info
 

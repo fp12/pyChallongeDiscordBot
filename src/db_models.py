@@ -96,3 +96,23 @@ class DBProfileEntry():
     @property
     def server(self):
         return self._tup[4]
+
+
+class DBModule():
+    def __init__(self, tup):
+        if tup:
+            self._tup = tup
+        else:
+            self._tup = (None, None, None)
+
+    @property
+    def server_id(self):
+        return self._tup[0]
+
+    @property
+    def module_name(self):
+        return self._tup[1]
+
+    @property
+    def module_def(self):
+        return self._tup[2]

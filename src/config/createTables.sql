@@ -32,4 +32,11 @@ CREATE TABLE "Profile" (
     "Args" TEXT,
     "Server" TEXT
 );
+CREATE TABLE "Modules" (
+    "ServerID" TEXT NOT NULL,
+    "ModuleName" TEXT NOT NULL,
+    "ModuleDef" TEXT NOT NULL,
+    UNIQUE(ServerID, ModuleName)
+);
+
 COMMIT;

@@ -1,0 +1,35 @@
+{
+	"name" : "required",
+	"states" : "required_array_state",
+	"structs" : 
+	{
+		"state" : 
+		{
+			"name" : "required_enum_statename",
+			"text" : "optional",
+			"events" : "optional_array_event"
+		},
+		"event" :
+		{
+			"name" : "required_enum_eventname",
+			"text" : "required",
+			"duration" : "optional_time"
+		}
+	},
+	"enums" :
+	{
+		"statename" : 
+		[
+			"pending",
+			"underway",
+			"review",
+			"complete"
+		],
+		"eventname" : 
+		[
+			"on_join",
+			"on_checkin_start",
+			"on_update_score"
+		]
+	}
+}

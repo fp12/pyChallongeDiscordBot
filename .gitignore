@@ -1,5 +1,4 @@
 *.json
-*.template
 *.sublime-project
 *.sublime-workspace
 *.pyc

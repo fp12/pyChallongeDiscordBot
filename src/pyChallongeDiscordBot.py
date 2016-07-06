@@ -6,6 +6,7 @@ import commands_def
 from commands_core import commands
 from profiling import profile_async, Scope
 from db_access import db
+from module import modules
 
 print('app_start')
 
@@ -34,6 +35,8 @@ async def cleanup_removed_server(serverid):
 @profile_async(Scope.Core)
 async def on_ready_impl():
     print('on_ready')
+
+    modules.set_client(client)
 
     db_servers = db.get_servers_id()
 

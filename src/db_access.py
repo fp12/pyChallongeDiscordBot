@@ -29,9 +29,9 @@ class DBAccess():
         except Exception as e:
             self._log_exc('add_server', e)
 
-    def remove_server(self, serverid):
+    def remove_server(self, server_id):
         try:
-            self._c.execute('DELETE FROM Server WHERE DiscordID = ?', (serverid,))
+            self._c.execute('DELETE FROM Server WHERE DiscordID = ?', (server_id,))
             self._conn.commit()
         except Exception as e:
             self._log_exc('remove_server', e)
@@ -146,6 +146,20 @@ class DBAccess():
                            profileFormat.format('Name', 'Average (ms)', 'Total (ms)', 'Count'),
                            rows,
                            lambda x: profileFormat.format(x[0], round(x[1], 2), round(x[2], 2), x[3]))
+
+    # Modules
+
+    def add_module(self, server_id, name, module_def):
+        try:
+            self._c.execute('INSERT INTO Modules VALUES(?, ?, ?)', (server_id, name, module_def))
+            self._conn.commit()
+        except Exception as e:
+            self._log_exc('add_module', e)
+
+    def get_modules(self):
+        self._c.execute("SELECT * FROM Modules")
+        for x in self._c.fetchall():
+            yield DBModule(x)
 
 
 db = DBAccess()

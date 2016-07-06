@@ -1,128 +1,55 @@
 import json
-from enum import Enum
+from db_access import db
+from module_gamename import Module_GameName
 
 
-class Type(Enum):
-    String = 0
-    Array = 1
-    Enum = 2
-    Struct = 3
-    Time = 4
+class Modules:
+    def __init__(self):
+        self._client = None
+        self.loaded_modules = {}
+
+    def set_client(self, client):
+        self._client = client
+        self._load_from_db()
+
+    def _create_new_module(self, name):
+        if name == 'gamename':
+            return Module_GameName(self._client)
+        return None
+
+    def _load_from_db(self):
+        for m in db.get_modules():
+            new_module = self._create_new_module(m.module_name)
+            if new_module:
+                new_module.accept_definition(m.module_def)
+                if m.server_id not in self.loaded_modules:
+                    self.loaded_modules[m.server_id] = []
+                self.loaded_modules[m.server_id].append(new_module)
+
+    def load_from_raw(self, raw, serverid):
+        raw_json = json.loads(raw)
+        if 'name' in raw_json:
+            new_module = self._create_new_module(raw_json['name'])
+            if new_module and new_module.build(raw_json):
+                if serverid not in self.loaded_modules:
+                    self.loaded_modules[serverid] = []
+                for m in self.loaded_modules[serverid]:
+                    if type(m) == type(new_module):
+                        del m
+                self.loaded_modules[serverid].append(new_module)
+                db.add_module(serverid, raw_json['name'], str(new_module._data))
+                return True
+        return False
+
+    def on_event(self, serverid, event, **event_args):
+        if serverid in self.loaded_modules:
+            for m in self.loaded_modules[serverid]:
+                m.on_event(event, event_args)
 
 
-def _is_required(value):
-    return value.startswith('required')
+modules = Modules()
 
 
-def _get_type(value):
-    split = value.split('_')
-    if len(split) == 1:
-        return Type.String, ''
-    elif len(split) == 2:
-        if split[1] == 'time':
-            return Type.Time, ''
-        if split[1] == 'array':
-            return Type.Array, ''
-    elif len(split) == 3:
-        if split[1] == 'array':
-            return Type.Array, split[2]
-        elif split[1] == 'enum':
-            return Type.Enum, split[2]
-        elif split[1] == 'struct':
-            return Type.Struct, split[2]
-    return Type.String, ''
-
-
-class Template:
-    def __init__(self, template):
-        self.template = template
-        self.structs = {}
-        with open('config/%s' % template) as data_file:
-            raw_template = json.load(data_file)
-            if 'structs' in raw_template:
-                self.structs = raw_template['structs']
-            if 'enums' in raw_template:
-                self.enums = raw_template['enums']
-            self.structs['main'] = {data: raw_template[data] for data in raw_template if data not in ['structs', 'enums']}
-
-    def _get_string(self, data):
-        return True, data
-
-    def _get_string_arr(self, data):
-        clean_data = []
-        for d in data:
-            clean_data.append(d)
-        return True, clean_data
-
-    def _get_struct_arr(self, data, struct):
-        clean_data = []
-        for d in data:
-            ok, s = self._get_struct(d, struct)
-            if not ok:
-                return False, s
-            clean_data.append(s)
-        return True, clean_data
-
-    def _get_enum(self, data, enum):
-        if data in self.enums[enum]:
-            return True, data
-        return False, data + ' not in enum ' + enum
-
-    def _get_struct(self, data, struct):
-        clean_data = {}
-        for key, info in self.structs[struct].items():
-            if _is_required(info) and key not in data:
-                return False, key + ' not found in data'
-            elif key in data:
-                datatype, name = _get_type(info)
-                if datatype == Type.String:
-                    ok, clean_data[key] = self._get_string(data[key])
-                    if not ok:
-                        return False, '_get_string failed for key ' + key + ': ' + clean_data[key]
-                elif datatype == Type.Array:
-                    if name == '':
-                        ok, clean_data[key] = self._get_string_arr(data[key])
-                        if not ok:
-                            return False, '_get_string_arr failed for key ' + key + ': ' + clean_data[key]
-                    elif name in self.structs:
-                        ok, clean_data[key] = self._get_struct_arr(data[key], name)
-                        if not ok:
-                            return False, '_get_struct_arr failed for key ' + key + ': ' + clean_data[key]
-                    else:
-                        return False, name + ' not declared as struct'
-                elif datatype == Type.Enum:
-                    if name in self.enums:
-                        ok, clean_data[key] = self._get_enum(data[key], name)
-                        if not ok:
-                            return False, '_get_enum failed for key ' + key + ': ' + clean_data[key]
-                    else:
-                        return False, name + ' not declared as enum'
-                elif datatype == Type.Struct:
-                    if name in self.structs:
-                        ok, clean_data[key] = self._get_struct(data[key], name)
-                        if not ok:
-                            return False, '_get_struct failed for key ' + key + ': ' + clean_data[key]
-                    else:
-                        return False, name + ' not declared as struct'
-                elif datatype == Type.Time:
-                    ok, clean_data[key] = self._get_time(data[key])
-                    if not ok:
-                        return False, '_get_time failed for key ' + key + ': ' + clean_data[key]
-                else:
-                    return False, 'Unknown type for ' + info
-        return True, data
-
-    def _get_time(self, data):
-        return True, data
-
-    def validate(self, data):
-        ok, clean_data = self._get_struct(data, 'main')
-        if ok:
-            return True, clean_data
-        else:
-            return False, 'validate failed: ' + clean_data
-
-
-class Module:
-    def build(self, json_data):
-        pass
+if __name__ == "__main__":
+    with open('config/module_gamename_example.json') as data_file:
+        modules.load_raw(data_file.read())
