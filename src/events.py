@@ -1,10 +1,10 @@
-from enum import Enum
+from utils import AutoEnum
 
 
-class Events(Enum):
-    on_join = 0
-    on_checkin_start = 1
-    on_update_score = 2
-    on_tournament_start = 3
-    on_tournament_finalize = 4
-    on_tournament_destroy = 5
+class Events(AutoEnum):
+    on_join = ()
+    on_forfeit = ()
+    on_checkin_start = ()
+    on_player_checkin = ()
+    on_update_score = ()
+    on_destroy = ()

@@ -1,55 +1,66 @@
 import json
+import asyncio
 from db_access import db
-from module_gamename import Module_GameName
+from module_botname import Module_BotName
+import ast
 
 
 class Modules:
     def __init__(self):
         self._client = None
-        self.loaded_modules = {}
+        self._loaded_modules = {}
 
-    def set_client(self, client):
+    async def set_client(self, client):
         self._client = client
         self._load_from_db()
+        for k, v in self._loaded_modules.items():
+            for m in v:
+                await m.post_init()
+        print('modules initialized')
 
-    def _create_new_module(self, name):
-        if name == 'gamename':
-            return Module_GameName(self._client)
+    def _create_new_module(self, name, server_id):
+        if name == 'botname':
+            return Module_BotName(self._client, server_id)
         return None
 
     def _load_from_db(self):
         for m in db.get_modules():
-            new_module = self._create_new_module(m.module_name)
+            new_module = self._create_new_module(m.module_name, m.server_id)
             if new_module:
-                new_module.accept_definition(m.module_def)
-                if m.server_id not in self.loaded_modules:
-                    self.loaded_modules[m.server_id] = []
-                self.loaded_modules[m.server_id].append(new_module)
+                new_module.accept_definition(ast.literal_eval(m.module_def))
+                if m.server_id not in self._loaded_modules:
+                    self._loaded_modules[m.server_id] = []
+                self._loaded_modules[m.server_id].append(new_module)
 
-    def load_from_raw(self, raw, serverid):
+    def load_from_raw(self, raw, server_id):
         raw_json = json.loads(raw)
         if 'name' in raw_json:
-            new_module = self._create_new_module(raw_json['name'])
+            new_module = self._create_new_module(raw_json['name'], server_id)
             if new_module and new_module.build(raw_json):
-                if serverid not in self.loaded_modules:
-                    self.loaded_modules[serverid] = []
-                for m in self.loaded_modules[serverid]:
+                if server_id not in self._loaded_modules:
+                    self._loaded_modules[server_id] = []
+                for m in self._loaded_modules[server_id]:
                     if type(m) == type(new_module):
                         del m
-                self.loaded_modules[serverid].append(new_module)
-                db.add_module(serverid, raw_json['name'], str(new_module._data))
+                self._loaded_modules[server_id].append(new_module)
+                db.add_module(server_id, raw_json['name'], str(new_module._data))
                 return True
         return False
 
-    def on_event(self, serverid, event, **event_args):
-        if serverid in self.loaded_modules:
-            for m in self.loaded_modules[serverid]:
-                m.on_event(event, event_args)
+    async def on_event(self, server_id, event, **event_args):
+        if server_id in self._loaded_modules:
+            for m in self._loaded_modules[server_id]:
+                await m.on_event(event, **event_args)
+
+    async def on_state_change(self, server_id, new_state, **event_args):
+        if server_id in self._loaded_modules:
+            for m in self._loaded_modules[server_id]:
+                await m.on_state_change(new_state, **event_args)
 
 
 modules = Modules()
 
 
 if __name__ == "__main__":
-    with open('config/module_gamename_example.json') as data_file:
+    with open('config/module_botname_example.json') as data_file:
         modules.load_raw(data_file.read())

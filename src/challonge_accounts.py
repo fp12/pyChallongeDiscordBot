@@ -10,7 +10,7 @@ class ChallongeAccess(Enum):
     RequiredForHost = 2
 
 
-class TournamentState(Enum):
+class TournamentStateConstraint(Enum):
     Pending = 1 << 0
     Underway = 1 << 1
     AwaitingReview = 1 << 2

@@ -66,17 +66,17 @@ class DBAccess():
 
     # Tournaments
 
-    def add_tournament(self, challongeId, channel, roleId, hostId):
+    def add_tournament(self, challonge_id, channel, role_id, host_id):
         try:
             self._c.execute('INSERT INTO Tournament VALUES(?, ?, ?, ?, ?)',
-                            (challongeId, channel.server.id, channel.id, roleId, hostId))
+                            (challonge_id, channel.server.id, channel.id, role_id, host_id))
             self._conn.commit()
         except Exception as e:
             self._log_exc('add_tournament', e)
 
-    def remove_tournament(self, challongeId):
+    def remove_tournament(self, challonge_id):
         try:
-            self._c.execute('DELETE FROM Tournament WHERE ChallongeID=?', (challongeId,))
+            self._c.execute('DELETE FROM Tournament WHERE ChallongeID=?', (challonge_id,))
             self._conn.commit()
         except Exception as e:
             self._log_exc('remove_tournament', e)
@@ -91,6 +91,11 @@ class DBAccess():
     def get_tournament(self, channel):
         self._c.execute("SELECT * FROM Tournament WHERE ChannelID=?", (channel.id,))
         return DBTournament(self._c.fetchone())
+
+    def get_tournaments(self, server_id):
+        self._c.execute("SELECT * FROM Tournament WHERE ServerID=?", (server_id,))
+        for x in self._c.fetchall():
+            yield DBTournament(x)
 
     # Users
 

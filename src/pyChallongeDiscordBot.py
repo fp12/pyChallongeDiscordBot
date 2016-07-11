@@ -36,8 +36,6 @@ async def cleanup_removed_server(serverid):
 async def on_ready_impl():
     print('on_ready')
 
-    modules.set_client(client)
-
     db_servers = db.get_servers_id()
 
     for s in [s for s in client.servers if s.id not in db_servers]:
@@ -47,6 +45,8 @@ async def on_ready_impl():
     for sid in [server_id for server_id in db_servers if client.get_server(server_id) not in client.servers]:
         print('on_ready cleaning removed server %d' % sid)
         await cleanup_removed_server(sid)
+
+    await modules.set_client(client)
 
     # Should we do a sanity check?
 
@@ -118,19 +118,20 @@ async def on_member_update_impl(before, after):
     if before != before.server.me:
         return
 
-    statusChange = '/' if before.status == after.status else '{}->{}'.format(before.status, after.status)
-    gameChange = '/' if before.game == after.game else '{}->{}'.format(before.game.name, after.game.name)
-    avatarChange = '/' if before.avatar_url == after.avatar_url else '{}->{}'.format(before.avatar_url, after.avatar_url)
-    nickchange = '/' if before.nick == after.nick else '{}->{}'.format(before.nick, after.nick)
+    statusChange = '/' if before.status == after.status else '\'{}\'->\'{}\''.format(before.status, after.status)
+    gameChange = '/' if before.game == after.game else '\'{}\'->\'{}\''.format(before.game.name, after.game.name)
+    avatarChange = '/' if before.avatar_url == after.avatar_url else '\'{}\'->\'{}\''.format(before.avatar_url, after.avatar_url)
+    nickchange = '/' if before.nick == after.nick else '\'{}\'->\'{}\''.format(before.nick, after.nick)
 
     if before.roles != after.roles:
         deleted = [x.name for x in before.roles if x not in after.roles]
         added = [x.name for x in after.roles if x not in before.roles]
-        rolesChange = ' -{}'.format(' -'.join(deleted)) if len(deleted) > 0 else '' + ' +{}'.format(' +'.join(added)) if len(added) > 0 else ''
+        rolesChange = '-{}'.format(' -'.join(deleted)) if len(deleted) > 0 else '' + ' +{}'.format(' +'.join(added)) if len(added) > 0 else ''
     else:
         rolesChange = '/'
-    print('on_member_update [Status {}] [Game {}] [Avatar {}] [Nick {}] [Roles{}]'.format(
-        statusChange, gameChange, avatarChange, nickchange, rolesChange))
+
+    print('on_member_update [Server \'{}\'] [Status {}] [Game {}] [Avatar {}] [Nick {}] [Roles {}]'.format(
+        before.server.name, statusChange, gameChange, avatarChange, nickchange, rolesChange))
 
     added = [x for x in after.roles if x not in before.roles and x.name == C_RoleName]
     if len(added) == 1:

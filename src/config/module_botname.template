@@ -22,12 +22,13 @@
 		[
 			"pending",
 			"underway",
-			"review",
+			"awaiting_review",
 			"complete"
 		],
 		"eventname" : 
 		[
 			"on_join",
+			"on_forfeit",
 			"on_checkin_start",
 			"on_update_score"
 		]

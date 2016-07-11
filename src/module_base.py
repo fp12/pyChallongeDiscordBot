@@ -1,4 +1,5 @@
 import json
+import asyncio
 from enum import Enum
 
 
@@ -124,11 +125,23 @@ class Template:
 
 
 class Module:
-    def __init__(self, client):
+    def __init__(self, client, server_id):
         self._client = client
+        self._server_id = server_id
+        self._data = {}
+        self._on_init()
+
+    def _on_init(self):
+        pass
 
     def build(self, json_data):
         return False
 
-    def on_event(self, event, **event_args):
+    async def post_init(self):
+        pass
+
+    async def on_event(self, event, **event_args):
+        pass
+
+    async def on_state_change(self, new_state, **event_args):
         pass

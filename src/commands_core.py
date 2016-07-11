@@ -1,7 +1,7 @@
 import asyncio
 from permissions import Permissions, get_permissions
 from channel_type import ChannelType, get_channel_type
-from challonge_accounts import ChallongeAccess, TournamentState, UserNotFound, UserNameNotSet, APIKeyNotSet, InvalidCredentials, get as get_account
+from challonge_accounts import ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet, InvalidCredentials, get as get_account
 from challonge_utils import validate_tournament_state
 from db_access import db
 import discord

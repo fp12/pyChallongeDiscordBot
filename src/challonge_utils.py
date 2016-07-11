@@ -1,9 +1,17 @@
 import asyncio
 import re
 from challonge import Account, ChallongeException
-from challonge_accounts import TournamentState
+from challonge_accounts import TournamentStateConstraint
 from const import *
 import math
+from utils import AutoEnum
+
+
+class TournamentState(AutoEnum):
+    pending = ()
+    underway = ()
+    awaiting_review = ()
+    complete = ()
 
 
 def author_is_winner(csv_score):
@@ -181,19 +189,19 @@ async def get_channel_desc(account, t):
     return None, None
 
 
-async def validate_tournament_state(account, t_id, state):
+async def validate_tournament_state(account, t_id, constraint):
     try:
         t = await account.tournaments.show(t_id)
     except ChallongeException as e:
         raise e
     else:
-        if t['state'] == 'pending' and state & TournamentState.Pending:
+        if t['state'] == 'pending' and constraint & TournamentStateConstraint.Pending:
             return True
-        if t['state'] == 'underway' and state & TournamentState.Underway:
+        if t['state'] == 'underway' and constraint & TournamentStateConstraint.Underway:
             return True
-        if t['state'] == 'awaiting_review' and state & TournamentState.AwaitingReview:
+        if t['state'] == 'awaiting_review' and constraint & TournamentStateConstraint.AwaitingReview:
             return True
-        if t['state'] == 'complete' and state & TournamentState.Complete:
+        if t['state'] == 'complete' and constraint & TournamentStateConstraint.Complete:
             return True
 
         return False
