@@ -338,7 +338,12 @@ async def reset(client, message, **kwargs):
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
         await client.send_message(message.channel, '✅ Tournament is has been reset!')
-        await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+        try:
+            t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'))
+        except ChallongeException as e:
+            print('reset exc=: %s' % e)
+        else:
+            await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         # TODO real text ?
 
 
@@ -494,7 +499,7 @@ async def status(client, message, **kwargs):
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
         if t['state'] == 'underway':
-            matchesRepr, exc = await get_current_matches_repr(account, t)
+            matchesRepr, exc = await get_current_matches_repr(kwargs.get('account'), t)
             if exc:
                 await client.send_message(message.channel, exc)
             else:

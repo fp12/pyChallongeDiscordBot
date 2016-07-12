@@ -127,7 +127,7 @@ async def get_participants(account, t):
 
 async def get_open_matches(account, t):
     if 'matches' in t:
-        matches = t['matches']
+        matches = [m for m in t['matches'] if m['state'] == 'open']
     else:
         try:
             matches = await account.matches.index(t['id'], state='open')
@@ -155,7 +155,7 @@ async def _get_channel_desc_pending(account, t):
 
 
 async def _get_channel_desc_underway(account, t):
-    matchesrepr, Exc = await get_current_matches_repr(account, t)
+    matchesrepr, exc = await get_current_matches_repr(account, t)
     if exc:
         return None, exc
 
@@ -215,7 +215,6 @@ async def get_current_matches_repr(account, t):
     if exc:
         return None, exc
 
-    matches = [m for m in t['matches'] if m['state'] == 'open']
     matches.sort(key=match_sort_by_round)
 
     if t['tournament-type'] == 'single elimination':
@@ -227,18 +226,18 @@ async def get_current_matches_repr(account, t):
     for m in matches:
         if t['tournament-type'] in ['single elimination', 'double elimination']:
             if m['round'] > 0 and bracketType != 1:
-                info.append('Winners bracket:')
+                desc.append('Winners bracket:')
                 bracketType = 1
             elif m['round'] < 0 and bracketType != 2:
-                info.append('Losers bracket:')
+                desc.append('Losers bracket:')
                 bracketType = 2
         else:
             if bracketType == 0:
-                info.append('Open matches:')
+                desc.append('Open matches:')
                 bracketType = 1
 
-        p1 = [p for p in participants if p['id'] == om['player1-id']][0]
-        p2 = [p for p in participants if p['id'] == om['player2-id']][0]
+        p1 = [p for p in participants if p['id'] == m['player1-id']][0]
+        p2 = [p for p in participants if p['id'] == m['player2-id']][0]
         desc.append('`{0}` 🆚 `{1}`'.format(p1['name'], p2['name']))
     return '\n'.join(desc), None
 
