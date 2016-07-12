@@ -1,10 +1,11 @@
 import asyncio
+import re
+import discord
 from permissions import Permissions, get_permissions
 from channel_type import ChannelType, get_channel_type
 from challonge_accounts import ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet, InvalidCredentials, get as get_account
 from challonge_utils import validate_tournament_state
 from db_access import db
-import discord
 from const import *
 import utils
 from profiling import Profiler, Scope, profile, profile_async
@@ -189,32 +190,21 @@ class CommandsHandler:
         return decorator
 
     def _get_command_and_postcommand(self, client, message):
-        split = message.content.split()
-        if len(split) == 0:
-            return None, None
+        regex = r"""(\w+)\s*(\w+|'[\w+ ?]+')?\s*(\w+|'[\w+ ?]+')?\s*(\w+|'[\w+ ?]+')?\s*(\w+|'[\w+ ?]+')?"""
 
-        command = None
-
-        if message.channel.is_private:
-            command = self.find(split[0])
-            offset = 1
-        else:
+        if not message.channel.is_private:
             commandTrigger = db.get_server(message.server).trigger
-            if len(split) <= 1:
-                return None, None
-            if split[0] == commandTrigger or client.user in message.mentions:
-                if len(split) > 1:
-                    command = self.find(split[1])
-                    offset = 2
+            regex = '(?:%s\s?|<!?%s>\s)%s' % (commandTrigger, client.user.id, regex)
 
-        if command:
-            return command, split[offset:len(split)]
+        r = re.compile(regex)
+        m = r.match(message.content)
+        if m:
+            return self.find(m.groups()[0]), [v for i, v in enumerate(m.groups()) if i > 0 and v is not None]
         else:
             return None, None
 
     async def try_execute(self, client, message):
         command, postCommand = self._get_command_and_postcommand(client, message)
-
         if command:
             try:
                 validated, exc = await command.validate_context(client, message, postCommand)
