@@ -1,5 +1,6 @@
 import json
 import asyncio
+import re
 from enum import Enum
 
 
@@ -114,7 +115,11 @@ class Template:
         return True, data
 
     def _get_time(self, data):
-        return True, data
+        r = re.compile(r'(?:(?P<days>\d+)d)?(?:(?P<hours>\d+)h)?(?:(?P<minutes>\d+)m)?(?:(?P<seconds>\d+)s)?')
+        m = r.match(data)
+        if m:
+            return True, int(m.group('seconds') or 0) + int(m.group('minutes') or 0) * 60 + int(m.group('hours') or 0) * 3600 + int(m.group('days') or 0) * 86400
+        return False, ' not a good time format '
 
     def validate(self, data):
         ok, clean_data = self._get_struct(data, 'main')
@@ -136,6 +141,9 @@ class Module:
 
     def build(self, json_data):
         return False
+
+    async def terminate(self):
+        pass
 
     async def post_init(self):
         pass

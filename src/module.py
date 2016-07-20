@@ -1,8 +1,8 @@
 import json
 import asyncio
+import ast
 from db_access import db
 from module_botname import Module_BotName
-import ast
 
 
 class Modules:
@@ -11,12 +11,13 @@ class Modules:
         self._loaded_modules = {}
 
     async def set_client(self, client):
-        self._client = client
-        self._load_from_db()
-        for k, v in self._loaded_modules.items():
-            for m in v:
-                await m.post_init()
-        print('modules initialized')
+        if self._client is None:
+            self._client = client
+            self._load_from_db()
+            for k, v in self._loaded_modules.items():
+                for m in v:
+                    await m.post_init()
+            print('modules initialized')
 
     def _create_new_module(self, name, server_id):
         if name == 'botname':
@@ -32,7 +33,7 @@ class Modules:
                     self._loaded_modules[m.server_id] = []
                 self._loaded_modules[m.server_id].append(new_module)
 
-    def load_from_raw(self, raw, server_id):
+    async def load_from_raw(self, raw, server_id):
         raw_json = json.loads(raw)
         if 'name' in raw_json:
             new_module = self._create_new_module(raw_json['name'], server_id)
@@ -41,6 +42,7 @@ class Modules:
                     self._loaded_modules[server_id] = []
                 for m in self._loaded_modules[server_id]:
                     if type(m) == type(new_module):
+                        await m.terminate()
                         del m
                 self._loaded_modules[server_id].append(new_module)
                 db.add_module(server_id, raw_json['name'], str(new_module._data))
