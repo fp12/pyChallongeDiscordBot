@@ -66,7 +66,7 @@ T_HelpGlobal = cleandoc("""```ruby
     ```""")
 
 T_Info = cleandoc("""
-    **Challonge Bot** by fp12
+    **Challonge Bot** by fp12#7496
     Version: v.0.9.0
     Invite the bot into your server: https://discordapp.com/oauth2/authorize?client_id=183236147726516225&scope=bot&permissions=335670288
     Join the server to discuss further improvements, report bugs and more!

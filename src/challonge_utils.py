@@ -257,3 +257,78 @@ async def get_final_ranking_repr(account, t):
             lastRank = p['final-rank']
         info.append('\t' + p['name'])
     return '\n'.join(info), None
+
+
+async def get_open_match_dependancy(account, t_id, m, p_id):
+    if m['player1-id'] == p_id:
+        if 'player2-prereq-match-id' in m:
+            waiting_on_match_id = m['player2-prereq-match-id']
+            waiting_for_loser = m['player2-is-prereq-match-loser']
+        else:
+            return None, '✅ You have a pending match with no dependancy!?'
+    elif m['player2-id'] == p_id:
+        if 'player1-prereq-match-id' in m:
+            waiting_on_match_id = m['player1-prereq-match-id']
+            waiting_for_loser = m['player1-is-prereq-match-loser']
+        else:
+            return None, '✅ You have a pending match with no dependancy!?'
+    else:
+        return None, '✅ Couldn\'t find participant'
+
+    try:
+        waiting_on_m = await account.matches.show(t_id, waiting_on_match_id)
+    except ChallongeException as e:
+        return None, T_OnChallongeException.format(e)
+    else:
+        loser_txt = '`Loser`' if waiting_for_loser else '`Winner`'
+        if waiting_on_m['player1-id'] == 0 or waiting_on_m['player2-id'] == 0:
+            return 'you are waiting for more than one match', None
+        else:
+            try:
+                p1 = await account.participants.show(t_id, waiting_on_m['player1-id'])
+                p2 = await account.participants.show(t_id, waiting_on_m['player2-id'])
+            except ChallongeException as e:
+                return None, T_OnChallongeException.format(e)
+            else:
+                return 'you are waiting on the %s of %s 🆚 %s' % (loser_txt, p1['name'], p2['name']), None
+
+
+async def get_next_match(account, t_id, name):
+    p_id, exc = await get_player(account, t_id, name)
+    if exc:
+        return None, exc
+    elif p_id:
+        try:
+            openMatches = await account.matches.index(t_id, state='open', participant_id=p_id)
+        except ChallongeException as e:
+            return None, T_OnChallongeException.format(e)
+        else:
+            if len(openMatches) > 0:
+                if openMatches[0]['player1-id'] == p_id:
+                    opponent_id = openMatches[0]['player2-id']
+                else:
+                    opponent_id = openMatches[0]['player1-id']
+
+                try:
+                    opponent = await account.participants.show(t_id, opponent_id)
+                except ChallongeException as e:
+                    return None, T_OnChallongeException.format(e)
+                else:
+                    return '✅ %s, you have an open match 🆚 %s' % (name, opponent['name']), None
+            else:
+                try:
+                    pendingMatches = await account.matches.index(t_id, state='pending', participant_id=p_id)
+                except ChallongeException as e:
+                    return None, T_OnChallongeException.format(e)
+                else:
+                    if len(pendingMatches) > 0:
+                        msg, exc = await get_open_match_dependancy(account, t_id, pendingMatches[0], p_id)
+                        if exc:
+                            print(exc)
+                            return '✅ %s, you have a pending match. Please wait for it to open' % name, None
+                        else:
+                            return '✅ %s, %s' % (name, msg), None
+                    else:
+                        return '✅ %s, you have no pending nor open match. It seems you\'re out of the tournament' % name, None
+    else:
+        return None, '❌ Participant \'%s\' not found' % name

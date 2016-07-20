@@ -96,7 +96,7 @@ async def module(client, message, **kwargs):
     except urllib.error.HTTPError as e:
         await client.send_message(message.channel, '❌ Something went wrong while setting module... %s' % e)
     else:
-        if modules.load_from_raw(f.read().decode("utf-8"), message.server.id):
+        if await modules.load_from_raw(f.read().decode("utf-8"), message.server.id):
             await client.send_message(message.channel, '✅ Module has been set!')
         else:
             await client.send_message(message.channel, '❌ Something went wrong while setting module...')
@@ -104,7 +104,7 @@ async def module(client, message, **kwargs):
 
 @commands.register(minPermissions=Permissions.ServerOwner, channelRestrictions=ChannelType.Any)
 async def ping(client, message, **kwargs):
-    timeSpent = datetime.now() - message.timestamp + timedelta(hours=4) # uct correction
+    timeSpent = datetime.now() - message.timestamp + timedelta(hours=4)  # uct correction
     await client.send_message(message.channel, '✅ pong! `{0:.3f}`s'.format(timeSpent.total_seconds()))
 
 
@@ -251,6 +251,7 @@ async def create(client, message, **kwargs):
                                                                               role.mention,
                                                                               chChannel.mention))
         await update_channel_topic(kwargs.get('account'), t, client, chChannel)
+        await modules.on_state_change(message.server.id, TournamentState.pending, t_name=kwargs.get('name'), me=message.server.me)
 
 
 @helpers('account', 'tournament_id')
@@ -300,10 +301,9 @@ async def start(client, message, **kwargs):
         deny = discord.Permissions.none()
         deny.send_messages = True
         await client.edit_channel_permissions(message.channel, message.server.default_role, deny=deny)
-
         await client.send_message(message.channel, '✅ Tournament is now started!')
-
         await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+        await modules.on_state_change(message.server.id, TournamentState.underway, t_name=t['name'], me=message.server.me)
         # TODO real text (with games to play...)
         """
         process = cloudconvertapi.convert({
@@ -337,13 +337,14 @@ async def reset(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        await client.send_message(message.channel, '✅ Tournament is has been reset!')
+        await client.send_message(message.channel, '✅ Tournament has been reset!')
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'))
         except ChallongeException as e:
             print('reset exc=: %s' % e)
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+            await modules.on_state_change(message.server.id, TournamentState.pending, t_name=t['name'], me=message.server.me)
         # TODO real text ?
 
 
@@ -392,7 +393,13 @@ async def checkin_setup(client, message, **kwargs):
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
         await client.send_message(message.channel, '✅ Start date and check-in duration have been processed')
-        await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+
+        try:
+            t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
+        except ChallongeException as e:
+            print(T_OnChallongeException.format(e))
+        else:
+            await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         # TODO real text ?
 
 
@@ -412,7 +419,12 @@ async def checkin_validate(client, message, **kwargs):
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
         await client.send_message(message.channel, '✅ Check-ins have been processed')
-        await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+        try:
+            t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
+        except ChallongeException as e:
+            print(T_OnChallongeException.format(e))
+        else:
+            await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         # TODO real text ?
 
 
@@ -431,7 +443,12 @@ async def checkin_abort(client, message, **kwargs):
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
         await client.send_message(message.channel, '✅ Check-ins have been aborted')
-        await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+        try:
+            t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
+        except ChallongeException as e:
+            print(T_OnChallongeException.format(e))
+        else:
+            await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         # TODO real text ?
 
 
@@ -456,7 +473,13 @@ async def finalize(client, message, **kwargs):
         # only the Challonge role will be able to write in it
         await client.delete_role(message.server, kwargs.get('tournament_role'))
         await client.send_message(message.channel, '✅ Tournament has been finalized!')
-        await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+        try:
+            t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
+        except ChallongeException as e:
+            print(T_OnChallongeException.format(e))
+        else:
+            await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+        await modules.on_state_change(message.server.id, TournamentState.complete, t_name=t['name'], me=message.server.me)
         # TODO real text + show rankings
 
 
@@ -544,20 +567,14 @@ async def updatex(client, message, **kwargs):
         return
 
     # Verify first player: mention first, then name, then nick
-    p1_as_member, exc = get_member(kwargs.get('p1'), message.server)
-    if exc:
-        await client.send_message(message.channel, exc)
-        return
-    elif not p1_as_member:
+    p1_as_member = get_member(kwargs.get('p1'), message.server)
+    if not p1_as_member:
         await client.send_message(message.channel, '❌ I could not find player 1 on this server')
         return
 
     # Verify second player: mention first, then name, then nick
-    p2_as_member, exc = get_member(kwargs.get('p2'), message.server)
-    if exc:
-        await client.send_message(message.channel, exc)
-        return
-    elif not p2_as_member:
+    p2_as_member = get_member(kwargs.get('p2'), message.server)
+    if not p2_as_member:
         await client.send_message(message.channel, '❌ I could not find player 2 on this server')
         return
 
@@ -588,7 +605,39 @@ async def updatex(client, message, **kwargs):
         return
     else:
         await client.send_message(message.channel, msg)
-        await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+        try:
+            t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
+        except ChallongeException as e:
+            print(T_OnChallongeException.format(e))
+        else:
+            await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+        await modules.on_event(message.server.id, Events.on_update_score, p1_name=p1_as_member.name, score=kwargs.get('score'), p2_name=p2_as_member.name, me=message.server.me)
+
+
+@helpers('account', 'tournament_id')
+@required_args('participant')
+@commands.register(minPermissions=Permissions.Organizer,
+                   channelRestrictions=ChannelType.Tournament,
+                   challongeAccess=ChallongeAccess.RequiredForHost,
+                   tournamentState=TournamentStateConstraint.Underway)
+async def nextx(client, message, **kwargs):
+    """Get information about your next game
+    Required Arguments
+    participant -- Participant name or nickname or mention (mention is safer)
+    """
+    # Verify first player: mention first, then name, then nick
+    p_as_member = get_member(kwargs.get('participant'), message.server)
+    if not p_as_member:
+        await client.send_message(message.channel, '❌ I could not find the participant on this server')
+        return
+
+    msg, exc = await get_next_match(kwargs.get('account'), kwargs.get('tournament_id'), p_as_member.name)
+    if exc:
+        await client.send_message(message.channel, exc)
+    elif msg:
+        await client.send_message(message.channel, msg)
+    else:
+        await client.send_message(message.channel, '❌ Something went wrong. Sorry...')
 
 
 # PARTICIPANT
@@ -606,8 +655,12 @@ async def update(client, message, **kwargs):
     score -- [YourScore]-[OpponentScore] : 5-0. Can be comma separated: 5-0,4-5,5-3
     opponent -- Your opponnent name or nickname or mention (mention is safer)
     """
+    account = kwargs.get('account')
+    t_id = kwargs.get('tournament_id')
+    score = kwargs.get('score')
+
     # Verify score format
-    if not verify_score_format(kwargs.get('score')):
+    if not verify_score_format(score):
         await client.send_message(message.channel, '❌ Invalid score format. Please use the following 5-0,4-5,5-3')
         return
 
@@ -617,7 +670,7 @@ async def update(client, message, **kwargs):
         await client.send_message(message.channel, '❌ I could not find your opponent on this server')
         return
 
-    p1_id, p2_id, exc = await get_players(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name, opponent_as_member.name)
+    p1_id, p2_id, exc = await get_players(account, t_id, message.author.name, opponent_as_member.name)
     if exc:
         await client.send_message(message.channel, exc)
         return
@@ -628,7 +681,7 @@ async def update(client, message, **kwargs):
         await client.send_message(message.channel, '❌ I could not find your opponent in this tournament')
         return
 
-    match, is_reversed, exc = await get_match(kwargs.get('account'), kwargs.get('tournament_id'), p1_id, p2_id)
+    match, is_reversed, exc = await get_match(account, t_id, p1_id, p2_id)
     if exc:
         await client.send_message(message.channel, exc)
         return
@@ -636,15 +689,33 @@ async def update(client, message, **kwargs):
         await client.send_message(message.channel, '❌ Your current opponent is not ' + opponent_as_member.name)
         return
 
-    winner_id = p1_id if author_is_winner(kwargs.get('score')) else p2_id
-    score = kwargs.get('score') if not is_reversed else reverse_score(kwargs.get('score'))
-    msg, exc = await update_score(kwargs.get('account'), kwargs.get('tournament_id'), match['id'], score, winner_id)
+    winner_id = p1_id if author_is_winner(score) else p2_id
+    if is_reversed:
+        score = reverse_score(score)
+    msg, exc = await update_score(account, t_id, match['id'], score, winner_id)
     if exc:
         await client.send_message(message.channel, exc)
-        return
     else:
-        await client.send_message(message.channel, msg)
-        await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+        next_for_p1, exc1 = await get_next_match(account, t_id, message.author.name)
+        next_for_p2, exc2 = await get_next_match(account, t_id, opponent_as_member.name)
+        if exc1 or exc2:
+            # something went wrong with the next games, don't bother the author and send the result msg
+            await client.send_message(message.channel, msg)
+            print(exc1, exc2)
+        else:
+            if next_for_p1:
+                msg = msg + '\n' + next_for_p1
+            if next_for_p2:
+                msg = msg + '\n' + next_for_p2
+            await client.send_message(message.channel, msg)
+
+        try:
+            t = await account.tournaments.show(t_id, include_participants=1, include_matches=1)
+        except ChallongeException as e:
+            print(T_OnChallongeException.format(e))
+        else:
+            await update_channel_topic(account, t, client, message.channel)
+        await modules.on_event(message.server.id, Events.on_update_score, p1_name=participant_name, score=kwargs.get('score'), p2_name=opponent_as_member.name, me=message.server.me)
 
 
 @helpers('account', 'tournament_id', 'tournament_role')
@@ -688,39 +759,13 @@ async def next(client, message, **kwargs):
     """Get information about your next game
     No Arguments
     """
-    author_id, exc = await get_player(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
+    msg, exc = await get_next_match(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
     if exc:
         await client.send_message(message.channel, exc)
-        return
-    elif author_id:
-        try:
-            openMatches = await kwargs.get('account').matches.index(kwargs.get('tournament_id'), state='open', participant_id=author_id)
-        except ChallongeException as e:
-            await client.send_message(message.author, T_OnChallongeException.format(e))
-        else:
-            if len(openMatches) > 0:
-                if openMatches[0]['player1-id'] == author_id:
-                    opponent_id = openMatches[0]['player2-id']
-                else:
-                    opponent_id = openMatches[0]['player1-id']
-
-                try:
-                    opponent = await kwargs.get('account').participants.show(kwargs.get('tournament_id'), opponent_id)
-                except ChallongeException as e:
-                    await client.send_message(message.author, T_OnChallongeException.format(e))
-                else:
-                    await client.send_message(message.channel, '✅ You have an open match 🆚 {0}'.format(opponent['name']))
-            else:
-                try:
-                    pendingMatches = await kwargs.get('account').matches.index(kwargs.get('tournament_id'), state='pending', participant_id=author_id)
-                except ChallongeException as e:
-                    await client.send_message(message.author, T_OnChallongeException.format(e))
-                else:
-                    if len(openMatches) > 0:
-                        await client.send_message(message.channel, '✅ You have a pending match. Please wait for it to open')
-                    else:
-                        await client.send_message(message.channel, '✅ You have no pending nor open match. It seems you\'re out of the tournament')
-                    # TODO: better management of names
+    elif msg:
+        await client.send_message(message.channel, msg)
+    else:
+        await client.send_message(message.channel, '❌ Something went wrong. Sorry...')
 
 
 @helpers('account', 'tournament_id')
@@ -837,7 +882,7 @@ async def join(client, message, **kwargs):
     No Arguments
     """
     try:
-        participant = await kwargs.get('account').participants.create(kwargs.get('tournament_id'), message.author.name, user_name=kwargs.get('participant_username'))
+        participant = await kwargs.get('account').participants.create(kwargs.get('tournament_id'), message.author.name, challonge_username=kwargs.get('participant_username'))
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
@@ -855,4 +900,7 @@ async def join(client, message, **kwargs):
 
 @commands.register(channelRestrictions=ChannelType.Any)
 async def info(client, message, **kwArgs):
+    """Get info about the Challonge Bot
+    No Arguments
+    """
     await client.send_message(message.channel, T_Info)

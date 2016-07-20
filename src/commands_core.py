@@ -163,6 +163,12 @@ class Command:
 
 
 class CommandsHandler:
+    simple_word = r"""[,\-\+\w@<>]+"""
+    separated_words = r"""(?:{0}\s*)""".format(simple_word)
+    argument = r"""\s*({0}|'{1}+')?""".format(simple_word, separated_words)
+    base_regex = r"""(\w+){0}{0}{0}{0}""".format(argument)
+    base_compiled_re = re.compile(base_regex, re.IGNORECASE)
+
     def __init__(self):
         self._commands = []
 
@@ -190,13 +196,13 @@ class CommandsHandler:
         return decorator
 
     def _get_command_and_postcommand(self, client, message):
-        regex = r"""(\w+)\s*(\w+|'[\w+ ?]+')?\s*(\w+|'[\w+ ?]+')?\s*(\w+|'[\w+ ?]+')?\s*(\w+|'[\w+ ?]+')?"""
-
         if not message.channel.is_private:
             commandTrigger = db.get_server(message.server).trigger
-            regex = '(?:%s\s?|<!?%s>\s)%s' % (commandTrigger, client.user.id, regex)
+            regex = '(?:%s\s?|<!?%s>\s)%s' % (commandTrigger, client.user.id, CommandsHandler.base_regex)
+            r = re.compile(regex, re.IGNORECASE)
+        else:
+            r = CommandsHandler.base_compiled_re
 
-        r = re.compile(regex)
         m = r.match(message.content)
         if m:
             return self.find(m.groups()[0]), [v for i, v in enumerate(m.groups()) if i > 0 and v is not None]
