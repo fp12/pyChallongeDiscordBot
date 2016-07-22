@@ -1,7 +1,8 @@
 from Crypto.Cipher import DES
 from Crypto import Random
-from config import appConfig
 from base64 import b64encode, b64decode
+
+from config import appConfig
 from profiling import profile, Scope
 
 # generate new key:

@@ -1,7 +1,9 @@
 import sqlite3
+
 from config import appConfig
-from db_models import *
 from utils import *
+from database.models import *
+
 
 serverFormat = '| {0:19}| {1:19}| {2:19}|'
 userFormat = '| {0:19}| {1:19}| {2:15}|'

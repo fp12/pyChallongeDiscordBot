@@ -1,8 +1,9 @@
 import json
 import asyncio
 import ast
-from db_access import db
-from module_botname import Module_BotName
+
+from database.core import db
+from modules.module_botname import Module_BotName
 
 
 class Modules:

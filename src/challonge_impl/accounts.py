@@ -1,8 +1,9 @@
-from db_access import db
-from challonge import Account, ChallongeException
-from enum import Enum
-from encoding import encoder
 import asyncio
+from enum import Enum
+from challonge import Account, ChallongeException
+from encoding import encoder
+from database.core import db
+
 
 class ChallongeAccess(Enum):
     NotRequired = 0

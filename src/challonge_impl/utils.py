@@ -1,9 +1,9 @@
 import asyncio
 import re
-from challonge import Account, ChallongeException
-from challonge_accounts import TournamentStateConstraint
-from const import *
 import math
+from challonge import ChallongeException
+from challonge_impl.accounts import TournamentStateConstraint
+from const import *
 from utils import AutoEnum
 
 

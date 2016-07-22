@@ -1,17 +1,18 @@
 import asyncio
 import re
 import discord
-from permissions import Permissions, get_permissions
-from channel_type import ChannelType, get_channel_type
-from challonge_accounts import ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet, InvalidCredentials, get as get_account
-from challonge_utils import validate_tournament_state
-from db_access import db
+
+from discord_impl.permissions import Permissions, get_permissions
+from discord_impl.channel_type import ChannelType, get_channel_type
+from challonge_impl.accounts import ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet, InvalidCredentials, get as get_account
+from challonge_impl.utils import validate_tournament_state
+from database.core import db
 from const import *
-import utils
+from utils import print_array
 from profiling import Profiler, Scope, profile, profile_async
 
 
-commandFormat = '| {0:17}| {1:16}| {2:13}| {3:11}| {4:20}| {5:20}| {6:20}|'
+commandFormat = '| {0:16} | {1:15} | {2:12} | {3:17} | {4:17} | {5:18} | {6:13} |'
 
 
 class MissingParameters(Exception):
@@ -163,7 +164,7 @@ class Command:
 
 
 class CommandsHandler:
-    simple_word = r"""[,\-\+\w@<>]+"""
+    simple_word = r"""[!,\-\+\w@<>]+"""
     separated_words = r"""(?:{0}\s*)""".format(simple_word)
     argument = r"""\s*({0}|'{1}+')?""".format(simple_word, separated_words)
     base_regex = r"""(\w+){0}{0}{0}{0}""".format(argument)
@@ -227,26 +228,26 @@ class CommandsHandler:
                                                         'PM' if message.channel.is_private else '{0.channel.server.name}/#{0.channel.name}'.format(message)))
 
     def dump(self):
-        return utils.print_array('Commands Registered',
-                                 commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Challonge', 'Aliases', 'Required Args', 'Optional Args'),
-                                 self._commands,
-                                 lambda c: commandFormat.format(c.name,
-                                                                c.attributes.minPermissions.name,
-                                                                c.attributes.channelRestrictions.name,
-                                                                c.attributes.challongeAccess.name,
-                                                                '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
-                                                                '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams),
-                                                                '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
+        return print_array('Commands Registered',
+                            commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Challonge', 'Aliases', 'Required Args', 'Optional Args'),
+                            self._commands,
+                            lambda c: commandFormat.format(c.name,
+                                                            c.attributes.minPermissions.name,
+                                                            c.attributes.channelRestrictions.name,
+                                                            c.attributes.challongeAccess.name,
+                                                            '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
+                                                            '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams),
+                                                            '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
 
 
-commands = CommandsHandler()
+cmds = CommandsHandler()
 
 
 class AuthorizedCommandsWrapper:
     def __init__(self, client, message):
         self._client = client
         self._message = message
-        self._commands = iter(commands._commands)
+        self._commands = iter(cmds._commands)
 
     async def __aiter__(self):
         return self
@@ -286,3 +287,7 @@ def helpers(*args):
     def decorator(func):
         return func.add_helpers(*args)
     return decorator
+
+
+import commands.definitions.management  # needed to preload commands
+import commands.definitions.challonge  # needed to preload commands

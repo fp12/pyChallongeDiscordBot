@@ -1,7 +1,8 @@
 from enum import Enum
+
 from const import *
 from config import appConfig
-from db_access import db
+from database.core import db
 
 
 class Permissions(Enum):

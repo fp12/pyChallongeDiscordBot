@@ -1,5 +1,6 @@
 from enum import Enum
-from db_access import db
+
+from database.core import db
 
 
 class ChannelType(Enum):

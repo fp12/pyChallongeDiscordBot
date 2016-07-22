@@ -1,12 +1,13 @@
-from config import appConfig
 import discord
 import asyncio
+
 from const import *
-import commands_def
-from commands_core import commands
+from config import appConfig
 from profiling import profile_async, Scope
-from db_access import db
-from module import modules
+from commands.core import cmds
+from database.core import db
+from modules.core import modules
+
 
 print('app_start')
 
@@ -148,9 +149,10 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    await commands.try_execute(client, message)
+    await cmds.try_execute(client, message)
 
 
 client.run(appConfig['discord']['token'])
+
 
 print('app_stop')

@@ -1,8 +1,10 @@
 import discord
-from config import appConfig
 import challonge
-from db_access import db
-import challonge_accounts
+
+from config import appConfig
+from database.core import db
+from challonge_impl.accounts import get as get_account
+
 
 client = discord.Client()
 
@@ -11,7 +13,7 @@ client = discord.Client()
 async def on_ready():
     print('# Starting cleanup')
     testServer = client.get_server('188517330127552513')
-    account = await challonge_accounts.get(testServer)
+    account = await get_account(testServer)
 
     for t in await account.tournaments.index():
         if t["name"].startswith("pychallonge") or t["name"].startswith("bot_"):

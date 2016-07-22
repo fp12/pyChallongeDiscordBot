@@ -1,9 +1,11 @@
-from module_base import Module, Template
 import asyncio
-from db_access import db
-from challonge_accounts import ChallongeException, get as get_account
-from challonge_utils import TournamentState
-from events import Events
+
+from database.core import db
+from challonge_impl.accounts import ChallongeException, get as get_account
+from challonge_impl.utils import TournamentState
+from challonge_impl.events import Events
+from modules.base import Module, Template
+
 
 max_nickname_len = 31
 

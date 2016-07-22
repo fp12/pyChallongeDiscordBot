@@ -1,7 +1,8 @@
 import time
 from enum import Enum
+
 import utils
-from db_access import db
+from database.core import db
 
 
 class Scope(Enum):
