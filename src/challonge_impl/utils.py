@@ -2,6 +2,7 @@ import asyncio
 import re
 import math
 from challonge import ChallongeException
+
 from challonge_impl.accounts import TournamentStateConstraint
 from const import *
 from utils import AutoEnum
@@ -125,12 +126,12 @@ async def get_participants(account, t):
     return participants, None
 
 
-async def get_open_matches(account, t):
+async def get_matches(account, t, state):
     if 'matches' in t:
-        matches = [m for m in t['matches'] if m['state'] == 'open']
+        matches = [m for m in t['matches'] if m['state'] == state]
     else:
         try:
-            matches = await account.matches.index(t['id'], state='open')
+            matches = await account.matches.index(t['id'], state=state)
         except ChallongeException as e:
             return None, T_OnChallongeException.format(e)
 
@@ -207,7 +208,7 @@ async def validate_tournament_state(account, t_id, constraint):
         return False
 
 async def get_current_matches_repr(account, t):
-    matches, exc = await get_open_matches(account, t)
+    matches, exc = await get_matches(account, t, 'open')
     if exc:
         return None, exc
 
@@ -226,19 +227,19 @@ async def get_current_matches_repr(account, t):
     for m in matches:
         if t['tournament-type'] in ['single elimination', 'double elimination']:
             if m['round'] > 0 and bracketType != 1:
-                desc.append('Winners bracket:')
+                desc.append('\n         Winners bracket:')
                 bracketType = 1
             elif m['round'] < 0 and bracketType != 2:
-                desc.append('Losers bracket:')
+                desc.append('\n         Losers bracket:')
                 bracketType = 2
         else:
             if bracketType == 0:
-                desc.append('Open matches:')
+                desc.append('\n         Open matches:')
                 bracketType = 1
 
         p1 = [p for p in participants if p['id'] == m['player1-id']][0]
         p2 = [p for p in participants if p['id'] == m['player2-id']][0]
-        desc.append('`{0}` 🆚 `{1}`'.format(p1['name'], p2['name']))
+        desc.append('           > {0:20} 🆚 {1:>20}'.format('`' + p1['name'] + '`', '`' + p2['name'] + '`'))
     return '\n'.join(desc), None
 
 
@@ -332,3 +333,99 @@ async def get_next_match(account, t_id, name):
                         return '✅ %s, you have no pending nor open match. It seems you\'re out of the tournament' % name, None
     else:
         return None, '❌ Participant \'%s\' not found' % name
+
+
+def find(cont, key, value):
+    found = [x for x in cont if x[key] == value]
+    if len(found) > 0:
+        return found[0]
+    else:
+        return None
+
+
+async def get_blocking_matches(account, t_id):
+    try:
+        t = await account.tournaments.show(t_id, include_participants=1, include_matches=1)
+    except ChallongeException as e:
+        return None, T_OnChallongeException.format(e)
+    else:
+        if len(t['matches']) == 0:
+            return '✅ No blocking matches!', None
+
+        matches = t['matches']
+        #  matches.sort(key=match_sort_by_round)
+
+        participants = t['participants']
+
+        blocking = {}
+
+        def process_prereq_match(m, player, blocked):
+            key = '%s-prereq-match-id' % player
+            if key in m and m[key]:
+                found = False
+                for k, v in blocking.items():
+                    if m[key] in v:
+                        print('%s is already in blocked matches of %s - adding %s' % (m[key], k, m['id']))
+                        blocking[k].append(m['id'])
+                        found = True
+                if not found:
+                    print('Adding %s to the blocked list' % m[key])
+                    blocked.append(m['id'])
+                    return m[key]
+            return None
+
+        def check_match(m_id, blocked):
+            for k, v in blocking.items():
+                if m_id in v:
+                    print('%s is already in blocked matches of %s - adding %s' % (m_id, k, blocked))
+                    blocking[k].extend(blocked)
+                    return
+            m = find(matches, 'id', m_id)
+            if not m:
+                print('no match with id #%s' % m_id)
+                return
+            debug_p1Name = 'None' if not m['player1-id'] else find(participants, 'id', m['player1-id'])['name']
+            debug_p2Name = 'None' if not m['player2-id'] else find(participants, 'id', m['player2-id'])['name']
+            print('check_match %s: %s Vs %s (%s)' % (m_id, debug_p1Name, debug_p2Name, m['state']))
+            if m['state'] == 'pending':
+                processed = process_prereq_match(m, 'player1', blocked)
+                if processed:
+                    print('%s needs to dive deeper' % processed)
+                    check_match(processed, blocked)
+                processed = process_prereq_match(m, 'player2', blocked)
+                if processed:
+                    blocked.append(processed)
+                    print('%s needs to dive deeper' % processed)
+                    check_match(processed, blocked)
+            elif m['state'] == 'open':
+                if m_id in blocking:
+                    blocking[m_id].extend(blocked)
+                else:
+                    blocking.update({m_id: blocked})
+            print(blocking)
+
+        for m in matches:
+            if m['state'] == 'pending' and (m['player1-id'] or m['player2-id']):
+                found = False
+                for k, v in blocking.items():
+                    if m['id'] in v:
+                        print('%s is already in blocked matches of %s' % (m['id'], k))
+                        found = True
+                if not found:
+                    print('Checking blockers for %s' % m['id'])
+                    blocked = [m['id']]
+                    if not m['player1-id'] and 'player1-prereq-match-id' in m and m['player1-prereq-match-id']:
+                        check_match(m['player1-prereq-match-id'], blocked)
+                    if not m['player2-id'] and 'player2-prereq-match-id' in m and m['player2-prereq-match-id']:
+                        check_match(m['player2-prereq-match-id'], blocked)
+
+        sorted_m = sorted(blocking.items(), key=lambda x: len(x[1]), reverse=True)
+        print(sorted_m)
+        msg = ['✅ Blocking matches:']
+        for tup_m in sorted_m:
+            m = find(matches, 'id', tup_m[0])
+            if m:
+                p1 = find(participants, 'id', m['player1-id'])
+                p2 = find(participants, 'id', m['player2-id'])
+                msg.append('%s 🆚 %s (%s game%s blocked)' % (p1['name'], p2['name'], len(tup_m[1]), 's' if len(tup_m[1]) > 1 else ''))
+        return '\n '.join(msg), None

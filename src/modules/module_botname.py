@@ -62,6 +62,7 @@ class Module_BotName(Module):
                             if len(nickname) <= max_nickname_len and me.nick != nickname:
                                 await self._client.change_nickname(me, nickname)
                                 if 'duration' in e:
+                                    print('Modules: Current nickname should be reverted in %ss' % e['duration'])
                                     self._client.loop.create_task(self._revert_to_default_in(e['duration']))
 
     async def on_state_change(self, new_state, **event_args):

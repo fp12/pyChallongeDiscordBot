@@ -4,6 +4,7 @@ import urllib.request
 import string
 # import os (needed with cloudconvert)
 # import cloudconvert
+from challonge import ChallongeException
 
 from const import *
 from utils import *
@@ -11,7 +12,7 @@ from utils import *
 from database.core import db
 from commands.core import *
 from modules.core import modules
-from challonge import ChallongeException
+
 from challonge_impl.accounts import ChallongeAccess, TournamentStateConstraint
 from challonge_impl.utils import *
 from challonge_impl.events import Events
@@ -22,7 +23,7 @@ from discord_impl.channel_type import ChannelType
 
 
 def get_member(name, server):
-    member_id = utils.get_user_id_from_mention(name)
+    member_id = get_user_id_from_mention(name)
     if member_id == 0:
         return server.get_member_named(name)
     else:
@@ -53,8 +54,8 @@ async def update_channel_topic(account, t, client, channel):
 @optional_args('subdomain')
 @required_args('name', 'url', 'type')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.NewTourney,
-                   challongeAccess=ChallongeAccess.RequiredForAuthor)
+               channelRestrictions=ChannelType.NewTourney,
+               challongeAccess=ChallongeAccess.RequiredForAuthor)
 async def create(client, message, **kwargs):
     """Create a new tournament
     Required Arguments:
@@ -109,9 +110,9 @@ async def create(client, message, **kwargs):
 @helpers('account', 'tournament_id')
 @aliases('shuffle', 'randomize')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Pending)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Pending)
 async def shuffleseeds(client, message, **kwargs):
     """Shuffle tournament seeds
     The tournament MUST NOT have been started yet!
@@ -129,9 +130,9 @@ async def shuffleseeds(client, message, **kwargs):
 @helpers('account', 'tournament_id', 'tournament_role')
 @aliases('launch')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Pending)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Pending)
 async def start(client, message, **kwargs):
     """Start a tournament
     This channel will be locked for writing except for participants / organizers
@@ -176,9 +177,9 @@ async def start(client, message, **kwargs):
 
 @helpers('account', 'tournament_id')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Underway)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Underway)
 async def reset(client, message, **kwargs):
     """Reset a tournament
     All scores and attachments will be cleared. You will be able to edit participants then start again
@@ -203,9 +204,9 @@ async def reset(client, message, **kwargs):
 @helpers('account', 'tournament_id')
 @required_args('date', 'time', 'duration')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Pending)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Pending)
 async def checkin_setup(client, message, **kwargs):
     """Setup the checkin process for participants
     Required Arguments:
@@ -257,9 +258,9 @@ async def checkin_setup(client, message, **kwargs):
 
 @helpers('account', 'tournament_id')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Pending)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Pending)
 async def checkin_validate(client, message, **kwargs):
     """Finalize the check-in process once check-in time is done
     Participants that didn't check-in will be moved to bottom seeds
@@ -282,9 +283,9 @@ async def checkin_validate(client, message, **kwargs):
 
 @helpers('account', 'tournament_id')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Pending)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Pending)
 async def checkin_abort(client, message, **kwargs):
     """Stop or reset the check-in process
     No arguments
@@ -306,9 +307,9 @@ async def checkin_abort(client, message, **kwargs):
 
 @helpers('account', 'tournament_id', 'tournament_role')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.AwaitingReview)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.AwaitingReview)
 async def finalize(client, message, **kwargs):
     """Finalize a tournament
     Tournament will be closed and no further modifications will be possible
@@ -337,9 +338,9 @@ async def finalize(client, message, **kwargs):
 
 @helpers('account', 'tournament_id', 'tournament_role')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Any)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Any)
 async def destroy(client, message, **kwargs):
     """Delete a tournament on Challonge and cleanup Discord bindings
     Use with caution! This action can't be reversed!
@@ -361,9 +362,9 @@ async def destroy(client, message, **kwargs):
 
 @helpers('account', 'tournament_id')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Any)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Any)
 async def status(client, message, **kwargs):
     """Get the tournament status
     No Arguments
@@ -378,7 +379,7 @@ async def status(client, message, **kwargs):
             if exc:
                 await client.send_message(message.channel, exc)
             else:
-                await client.send_message(message.channel, '✅ Status for tournament `{0}` ({1})\nOpen Matches:\n{2}'.format(t['name'], t['full-challonge-url'], matchesRepr))
+                await client.send_message(message.channel, '✅ Open matches for tournament `{0}` ({1})\n{2}'.format(t['name'], t['full-challonge-url'], matchesRepr))
 
         elif t['state'] == 'pending':
             info = []
@@ -403,9 +404,9 @@ async def status(client, message, **kwargs):
 @helpers('account', 'tournament_id')
 @required_args('p1', 'score', 'p2')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Underway)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Underway)
 async def updatex(client, message, **kwargs):
     """Report a match score
     Required Arguments:
@@ -469,9 +470,9 @@ async def updatex(client, message, **kwargs):
 @helpers('account', 'tournament_id')
 @required_args('participant')
 @cmds.register(minPermissions=Permissions.Organizer,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Underway)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Underway)
 async def nextx(client, message, **kwargs):
     """Get information about your next game
     Required Arguments
@@ -492,15 +493,33 @@ async def nextx(client, message, **kwargs):
         await client.send_message(message.channel, '❌ Something went wrong. Sorry...')
 
 
+@helpers('account', 'tournament_id')
+@cmds.register(minPermissions=Permissions.Organizer,
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Underway)
+async def blocking(client, message, **kwargs):
+    """Get information about games blocking the tournament
+    No Arguments
+    """
+    msg, exc = await get_blocking_matches(kwargs.get('account'), kwargs.get('tournament_id'))
+    if exc:
+        await client.send_message(message.channel, exc)
+    elif msg:
+        await client.send_message(message.channel, msg)
+    else:
+        await client.send_message(message.channel, '❌ Something went wrong. Sorry...')
+
+
 # PARTICIPANT
 
 
 @helpers('account', 'tournament_id')
 @required_args('score', 'opponent')
 @cmds.register(minPermissions=Permissions.Participant,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Underway)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Underway)
 async def update(client, message, **kwargs):
     """Report your score against another participant
     Required Arguments:
@@ -572,9 +591,9 @@ async def update(client, message, **kwargs):
 
 @helpers('account', 'tournament_id', 'tournament_role')
 @cmds.register(minPermissions=Permissions.Participant,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Any)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Any)
 async def forfeit(client, message, **kwargs):
     """Forfeit for the current tournament
     If the tournament is pending, you will be removed from the participants list
@@ -604,9 +623,9 @@ async def forfeit(client, message, **kwargs):
 
 @helpers('account', 'tournament_id')
 @cmds.register(minPermissions=Permissions.Participant,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Underway)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Underway)
 async def next(client, message, **kwargs):
     """Get information about your next game
     No Arguments
@@ -622,9 +641,9 @@ async def next(client, message, **kwargs):
 
 @helpers('account', 'tournament_id')
 @cmds.register(minPermissions=Permissions.Participant,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Pending)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Pending)
 async def checkin(client, message, **kwargs):
     """Check-in for the current tournament
     No Arguments
@@ -644,9 +663,9 @@ async def checkin(client, message, **kwargs):
 
 @helpers('account', 'tournament_id')
 @cmds.register(minPermissions=Permissions.Participant,
-                   channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Pending)
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Pending)
 async def undocheckin(client, message, **kwargs):
     """Undo check-in for the current tournament
     No Arguments
@@ -699,8 +718,8 @@ async def key(client, message, **kwargs):
 
 @helpers('account', 'tournament_id', 'participant_username', 'tournament_role')
 @cmds.register(channelRestrictions=ChannelType.Tournament,
-                   challongeAccess=ChallongeAccess.RequiredForHost,
-                   tournamentState=TournamentStateConstraint.Pending)
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Pending)
 async def join(client, message, **kwargs):
     """Join the current tournament
     No Arguments

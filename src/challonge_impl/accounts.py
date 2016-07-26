@@ -1,6 +1,7 @@
 import asyncio
 from enum import Enum
 from challonge import Account, ChallongeException
+
 from encoding import encoder
 from database.core import db
 
