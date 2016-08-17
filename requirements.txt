@@ -1,1 +1,3 @@
 discord.py
+pycrypto
+-e git://github.com/fp12/pychallonge_async.git#egg=pychallonge_async
