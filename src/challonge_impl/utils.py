@@ -6,6 +6,7 @@ from challonge import ChallongeException
 from challonge_impl.accounts import TournamentStateConstraint
 from const import *
 from utils import AutoEnum
+from log import log_challonge
 
 
 class TournamentState(AutoEnum):
@@ -186,7 +187,7 @@ async def get_channel_desc(account, t):
     if t['state'] == 'complete':
         return await _get_channel_desc_complete(account, t)
 
-    print('[get_channel_desc] Unreferenced tournament state: ' + t['state'])
+    log_challonge.info('[get_channel_desc] Unreferenced tournament state: ' + t['state'])
     return None, None
 
 
@@ -325,7 +326,7 @@ async def get_next_match(account, t_id, name):
                     if len(pendingMatches) > 0:
                         msg, exc = await get_open_match_dependancy(account, t_id, pendingMatches[0], p_id)
                         if exc:
-                            print(exc)
+                            log_challonge.info(exc)
                             return '✅ %s, you have a pending match. Please wait for it to open' % name, None
                         else:
                             return '✅ %s, %s' % (name, msg), None
@@ -365,11 +366,11 @@ async def get_blocking_matches(account, t_id):
                 found = False
                 for k, v in blocking.items():
                     if m[key] in v:
-                        print('%s is already in blocked matches of %s - adding %s' % (m[key], k, m['id']))
+                        # log_challonge.info('%s is already in blocked matches of %s - adding %s' % (m[key], k, m['id']))
                         blocking[k].append(m['id'])
                         found = True
                 if not found:
-                    print('Adding %s to the blocked list' % m[key])
+                    # log_challonge.info('Adding %s to the blocked list' % m[key])
                     blocked.append(m['id'])
                     return m[key]
             return None
@@ -377,42 +378,42 @@ async def get_blocking_matches(account, t_id):
         def check_match(m_id, blocked):
             for k, v in blocking.items():
                 if m_id in v:
-                    print('%s is already in blocked matches of %s - adding %s' % (m_id, k, blocked))
+                    # log_challonge.info('%s is already in blocked matches of %s - adding %s' % (m_id, k, blocked))
                     blocking[k].extend(blocked)
                     return
             m = find(matches, 'id', m_id)
             if not m:
-                print('no match with id #%s' % m_id)
+                # log_challonge.info('no match with id #%s' % m_id)
                 return
             debug_p1Name = 'None' if not m['player1-id'] else find(participants, 'id', m['player1-id'])['name']
             debug_p2Name = 'None' if not m['player2-id'] else find(participants, 'id', m['player2-id'])['name']
-            print('check_match %s: %s Vs %s (%s)' % (m_id, debug_p1Name, debug_p2Name, m['state']))
+            # log_challonge.info('check_match %s: %s Vs %s (%s)' % (m_id, debug_p1Name, debug_p2Name, m['state']))
             if m['state'] == 'pending':
                 processed = process_prereq_match(m, 'player1', blocked)
                 if processed:
-                    print('%s needs to dive deeper' % processed)
+                    # log_challonge.info('%s needs to dive deeper' % processed)
                     check_match(processed, blocked)
                 processed = process_prereq_match(m, 'player2', blocked)
                 if processed:
                     blocked.append(processed)
-                    print('%s needs to dive deeper' % processed)
+                    # log_challonge.info('%s needs to dive deeper' % processed)
                     check_match(processed, blocked)
             elif m['state'] == 'open':
                 if m_id in blocking:
                     blocking[m_id].extend(blocked)
                 else:
                     blocking.update({m_id: blocked})
-            print(blocking)
+            # log_challonge.info(blocking)
 
         for m in matches:
             if m['state'] == 'pending' and (m['player1-id'] or m['player2-id']):
                 found = False
                 for k, v in blocking.items():
                     if m['id'] in v:
-                        print('%s is already in blocked matches of %s' % (m['id'], k))
+                        # log_challonge.info('%s is already in blocked matches of %s' % (m['id'], k))
                         found = True
                 if not found:
-                    print('Checking blockers for %s' % m['id'])
+                    # log_challonge.info('Checking blockers for %s' % m['id'])
                     blocked = [m['id']]
                     if not m['player1-id'] and 'player1-prereq-match-id' in m and m['player1-prereq-match-id']:
                         check_match(m['player1-prereq-match-id'], blocked)
@@ -420,12 +421,12 @@ async def get_blocking_matches(account, t_id):
                         check_match(m['player2-prereq-match-id'], blocked)
 
         sorted_m = sorted(blocking.items(), key=lambda x: len(x[1]), reverse=True)
-        print(sorted_m)
+        # log_challonge.info(sorted_m)
         msg = ['✅ Blocking matches:']
         for tup_m in sorted_m:
             m = find(matches, 'id', tup_m[0])
             if m:
                 p1 = find(participants, 'id', m['player1-id'])
                 p2 = find(participants, 'id', m['player2-id'])
-                msg.append('%s 🆚 %s (%s game%s blocked)' % (p1['name'], p2['name'], len(tup_m[1]), 's' if len(tup_m[1]) > 1 else ''))
+                msg.append('`%s game%s blocked` by: %s 🆚 %s' % (len(tup_m[1]), 's' if len(tup_m[1]) > 1 else '', p1['name'], p2['name']))
         return '\n '.join(msg), None

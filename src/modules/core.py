@@ -4,6 +4,7 @@ import ast
 
 from database.core import db
 from modules.module_botname import Module_BotName
+from log import log_modules
 
 
 class Modules:
@@ -18,7 +19,7 @@ class Modules:
             for k, v in self._loaded_modules.items():
                 for m in v:
                     await m.post_init()
-            print('modules initialized')
+            log_modules.info('Modules initialized')
 
     def _create_new_module(self, name, server_id):
         if name == 'botname':

@@ -1,6 +1,7 @@
 import re
 from enum import Enum
 
+from log import log_main
 
 class AutoEnum(Enum):
     def __new__(cls):
@@ -32,7 +33,7 @@ def print_array(title, header, iterable, func):
     arr.append(arrayLineSeparators)
 
     finalStr = '\n'.join(arr)
-    print(finalStr)
+    log_main.info(finalStr)
     return finalStr
 
 

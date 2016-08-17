@@ -9,10 +9,10 @@ from challonge import ChallongeException
 from const import *
 from utils import *
 # from config import appConfig (needed with cloudconvert)
+from log import log_commands_def
 from database.core import db
 from commands.core import *
 from modules.core import modules
-
 from challonge_impl.accounts import ChallongeAccess, TournamentStateConstraint
 from challonge_impl.utils import *
 from challonge_impl.events import Events
@@ -171,7 +171,7 @@ async def start(client, message, **kwargs):
         try:
             os.remove('data/temp.png')
         except OSError as e:
-            print ("Error: %s - %s." % (e.filename,e.strerror))
+            log_commands_def.error("Error: %s - %s." % (e.filename,e.strerror))
         """
 
 
@@ -194,7 +194,7 @@ async def reset(client, message, **kwargs):
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'))
         except ChallongeException as e:
-            print('reset exc=: %s' % e)
+            log_commands_def.error('reset exc=: %s' % e)
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
             await modules.on_state_change(message.server.id, TournamentState.pending, t_name=t['name'], me=message.server.me)
@@ -249,8 +249,8 @@ async def checkin_setup(client, message, **kwargs):
 
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
-        except ChallongeException as e:
-            print(T_OnChallongeException.format(e))
+        except ChallongeException:
+            log_commands_def.exception()
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         # TODO real text ?
@@ -274,8 +274,8 @@ async def checkin_validate(client, message, **kwargs):
         await client.send_message(message.channel, '✅ Check-ins have been processed')
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
-        except ChallongeException as e:
-            print(T_OnChallongeException.format(e))
+        except ChallongeException:
+            log_commands_def.exception()
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         # TODO real text ?
@@ -298,8 +298,8 @@ async def checkin_abort(client, message, **kwargs):
         await client.send_message(message.channel, '✅ Check-ins have been aborted')
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
-        except ChallongeException as e:
-            print(T_OnChallongeException.format(e))
+        except ChallongeException:
+            log_commands_def.exception()
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         # TODO real text ?
@@ -328,8 +328,8 @@ async def finalize(client, message, **kwargs):
         await client.send_message(message.channel, '✅ Tournament has been finalized!')
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
-        except ChallongeException as e:
-            print(T_OnChallongeException.format(e))
+        except ChallongeException:
+            log_commands_def.exception()
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         await modules.on_state_change(message.server.id, TournamentState.complete, t_name=t['name'], me=message.server.me)
@@ -398,7 +398,7 @@ async def status(client, message, **kwargs):
                 await client.send_message(message.channel, '✅ Tournament: {0} ({1}) has been completed\n{2}'.format(t['name'], t['full-challonge-url'], rankingRepr))
 
         else:
-            print('[status] Unknown state: ' + t['state'])
+            log_commands_def.error('[status] Unknown state: ' + t['state'])
 
 
 @helpers('account', 'tournament_id')
@@ -460,8 +460,8 @@ async def updatex(client, message, **kwargs):
         await client.send_message(message.channel, msg)
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
-        except ChallongeException as e:
-            print(T_OnChallongeException.format(e))
+        except ChallongeException:
+            log_commands_def.exception()
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         await modules.on_event(message.server.id, Events.on_update_score, p1_name=p1_as_member.name, score=kwargs.get('score'), p2_name=p2_as_member.name, me=message.server.me)
@@ -494,6 +494,7 @@ async def nextx(client, message, **kwargs):
 
 
 @helpers('account', 'tournament_id')
+@aliases('block', 'blocker', 'blockers')
 @cmds.register(minPermissions=Permissions.Organizer,
                channelRestrictions=ChannelType.Tournament,
                challongeAccess=ChallongeAccess.RequiredForHost,
@@ -572,7 +573,7 @@ async def update(client, message, **kwargs):
         if exc1 or exc2:
             # something went wrong with the next games, don't bother the author and send the result msg
             await client.send_message(message.channel, msg)
-            print(exc1, exc2)
+            log_commands_def.error(exc1, exc2)
         else:
             if next_for_p1:
                 msg = msg + '\n' + next_for_p1
@@ -582,8 +583,8 @@ async def update(client, message, **kwargs):
 
         try:
             t = await account.tournaments.show(t_id, include_participants=1, include_matches=1)
-        except ChallongeException as e:
-            print(T_OnChallongeException.format(e))
+        except ChallongeException:
+            log_commands_def.exception()
         else:
             await update_channel_topic(account, t, client, message.channel)
         await modules.on_event(message.server.id, Events.on_update_score, p1_name=message.author.name, score=kwargs.get('score'), p2_name=opponent_as_member.name, me=message.server.me)

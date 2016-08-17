@@ -6,7 +6,7 @@ from discord_impl.permissions import Permissions
 from discord_impl.channel_type import ChannelType
 from database.core import db
 from commands.core import cmds, aliases, required_args, optional_args, helpers, AuthorizedCommandsWrapper
-
+from log import log_commands_def
 
 # DEV ONLY
 
@@ -107,7 +107,7 @@ async def promote(client, message, **kwargs):
                     await client.send_message(message.channel, T_PromoteError.format(member, message.server.owner.mention))
                 finally:
                     return
-        print('command:promote could not find \'{}\' Role? roles: {}'.format(
+        log_commands_def.info('command:promote could not find \'{}\' Role? roles: {}'.format(
             C_RoleName, ' '.join([r.name for r in message.server.me.roles])))
     else:
         await client.send_message(message.channel, '❌ Could not find Member **{}**'.format(kwargs.get('member')))
@@ -133,7 +133,7 @@ async def demote(client, message, **kwargs):
                     await client.send_message(message.channel, T_DemoteError.format(member, message.server.owner.mention))
                 finally:
                     return
-        print('command:promote could not find \'{}\' Role? roles: {}'.format(C_RoleName, ' '.join([r.name for r in message.server.me.roles])))
+        log_commands_def.info('command:promote could not find \'{}\' Role? roles: {}'.format(C_RoleName, ' '.join([r.name for r in message.server.me.roles])))
     else:
         await client.send_message(message.channel, '❌ Could not find Member **{}**'.format(kwargs.get('member')))
 
@@ -172,7 +172,7 @@ async def help(client, message, **kwargs):
         command = commands.find(commandName)
         if command:
             try:
-                await command.validate_context(client, message, [])
+                validated, exc = await command.validate_context(client, message, [])
             except (InsufficientPrivileges, WrongChannel):
                 await client.send_message(message.channel, '❌ Invalid command or you can\'t use it on this channel')
                 return

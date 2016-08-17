@@ -9,6 +9,7 @@ from challonge_impl.utils import validate_tournament_state
 from database.core import db
 from const import *
 from utils import print_array
+from log import log_commands_core
 from profiling import Profiler, Scope, profile, profile_async
 
 
@@ -216,16 +217,16 @@ class CommandsHandler:
             try:
                 validated, exc = await command.validate_context(client, message, postCommand)
             except Exception as e:
-                print('[CommandsHandler.try_execute] [message: {0}] [Exception: {1}]'.format(message.content, e))
+                log_commands_core.info('[CommandsHandler.try_execute] [message: {0}] [Exception: {1}]'.format(message.content, e))
             else:
                 if exc:
                     await client.send_message(message.channel, exc)
                 elif validated:
                     await command.execute(client, message, postCommand)
-                    print(T_Log_ValidatedCommand.format(command.name,
-                                                        '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand),
-                                                        message,
-                                                        'PM' if message.channel.is_private else '{0.channel.server.name}/#{0.channel.name}'.format(message)))
+                    log_commands_core.info(T_Log_ValidatedCommand.format(command.name, 
+                        '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand), 
+                        message, 
+                        'PM' if message.channel.is_private else '{0.channel.server.name}/#{0.channel.name}'.format(message)))
 
     def dump(self):
         return print_array('Commands Registered',

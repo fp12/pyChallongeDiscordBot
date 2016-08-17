@@ -1,6 +1,7 @@
 import sqlite3
 
 from config import appConfig
+from log import log_db
 from utils import *
 from database.models import *
 
@@ -19,7 +20,7 @@ class DBAccess():
         self._conn.close()
 
     def _log_exc(self, funcname, e):
-        print('DBAccess Exception in {0}: {1}'.format(funcname, e))
+        log_db.info('DBAccess Exception in {0}: {1}'.format(funcname, e))
 
     # Servers
 

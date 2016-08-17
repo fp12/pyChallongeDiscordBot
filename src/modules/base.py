@@ -136,6 +136,9 @@ class Module:
         self._data = {}
         self._on_init()
 
+    def accept_definition(self, data):
+        self._data = data
+
     def _on_init(self):
         pass
 

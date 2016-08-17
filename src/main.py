@@ -3,13 +3,14 @@ import asyncio
 
 from const import *
 from config import appConfig
+from log import log_main
 from profiling import profile_async, Scope
 from commands.core import cmds
 from database.core import db
 from modules.core import modules
 
 
-print('app_start')
+log_main.debug('app_start')
 
 
 client = discord.Client()
@@ -17,7 +18,7 @@ client = discord.Client()
 
 @profile_async(Scope.Core)
 async def greet_new_server(server):
-    print(T_Log_JoinedServer.format(server.name, server.id, server.owner.name, server.owner.id))
+    log_main.info(T_Log_JoinedServer.format(server.name, server.id, server.owner.name, server.owner.id))
 
     db.add_user(server.owner)
 
@@ -30,21 +31,21 @@ async def greet_new_server(server):
 @profile_async(Scope.Core)
 async def cleanup_removed_server(serverid):
     db.remove_server(serverid)
-    print(T_Log_CleanRemovedServer.format(serverid))
+    log_main.info(T_Log_CleanRemovedServer.format(serverid))
 
 
 @profile_async(Scope.Core)
 async def on_ready_impl():
-    print('on_ready')
+    log_main.info('Challonge Bot ready')
 
     db_servers = db.get_servers_id()
 
     for s in [s for s in client.servers if s.id not in db_servers]:
-        print('on_ready greeting new server ' + s.name)
+        log_main.info('on_ready greeting new server ' + s.name)
         await greet_new_server(s)
 
     for sid in [server_id for server_id in db_servers if client.get_server(server_id) not in client.servers]:
-        print('on_ready cleaning removed server %d' % sid)
+        log_main.info('on_ready cleaning removed server %d' % sid)
         await cleanup_removed_server(sid)
 
     await modules.set_client(client)
@@ -110,7 +111,7 @@ async def on_server_join(server):
 
 @client.event
 async def on_server_remove(server):
-    print(T_Log_RemovedServer.format(server.name, server.id, server.owner.name, server.owner.id))
+    log_main.info(T_Log_RemovedServer.format(server.name, server.id, server.owner.name, server.owner.id))
     await cleanup_removed_server(server.id)
 
 
@@ -131,7 +132,7 @@ async def on_member_update_impl(before, after):
     else:
         rolesChange = '/'
 
-    print('on_member_update [Server \'{}\'] [Status {}] [Game {}] [Avatar {}] [Nick {}] [Roles {}]'.format(
+    log_main.info('on_member_update [Server \'{}\'] [Status {}] [Game {}] [Avatar {}] [Nick {}] [Roles {}]'.format(
         before.server.name, statusChange, gameChange, avatarChange, nickchange, rolesChange))
 
     added = [x for x in after.roles if x not in before.roles and x.name == C_RoleName]
@@ -155,4 +156,4 @@ async def on_message(message):
 client.run(appConfig['discord']['token'])
 
 
-print('app_stop')
+log_main.debug('app_stop')
