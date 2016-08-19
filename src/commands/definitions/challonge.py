@@ -35,7 +35,7 @@ async def update_channel_topic(account, t, client, channel):
     if exc:
         await client.send_message(channel, exc)
     elif desc:
-        currentTopic = channel.topic
+        currentTopic = channel.topic or ''
         index = -1
         custom_topic = ''
         if currentTopic and len(currentTopic) > 0:
@@ -123,7 +123,7 @@ async def shuffleseeds(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        await client.send_message(message.channel, '✅ Seeds for this tournament have been suffled!')
+        await client.send_message(message.channel, '✅ Seeds for this tournament have been shuffled!')
         # TODO: display list of new players seeds
 
 
@@ -143,17 +143,17 @@ async def start(client, message, **kwargs):
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
-        allow = discord.Permissions.none()
-        allow.send_messages = True
-        await client.edit_channel_permissions(message.channel, kwargs.get('tournament_role'), allow=allow)
+        overwrite = discord.PermissionOverwrite()
+        overwrite.send_messages = True
+        await client.edit_channel_permissions(message.channel, kwargs.get('tournament_role'), overwrite)
 
         for r in message.server.me.roles:
             if r.name == C_RoleName:
-                await client.edit_channel_permissions(message.channel, r, allow=allow)
+                await client.edit_channel_permissions(message.channel, r, overwrite)
 
-        deny = discord.Permissions.none()
-        deny.send_messages = True
-        await client.edit_channel_permissions(message.channel, message.server.default_role, deny=deny)
+        overwrite = discord.PermissionOverwrite()
+        overwrite.send_messages = False
+        await client.edit_channel_permissions(message.channel, message.server.default_role, overwrite)
         await client.send_message(message.channel, '✅ Tournament is now started!')
         await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         await modules.on_state_change(message.server.id, TournamentState.underway, t_name=t['name'], me=message.server.me)

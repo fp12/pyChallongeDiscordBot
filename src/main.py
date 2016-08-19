@@ -72,20 +72,20 @@ async def on_challonge_role_assigned(server, chRole):
 
     db.add_server(server, chChannel)
 
-    deny = discord.Permissions.none()
-    deny.send_messages = True
-    deny.read_messages = True
-    await client.edit_channel_permissions(chChannel, server.default_role, deny=deny)
+    overwrite = discord.PermissionOverwrite()
+    overwrite.send_messages = False
+    overwrite.read_messages = False
+    await client.edit_channel_permissions(chChannel, server.default_role, overwrite)
 
-    allow = discord.Permissions.none()
-    allow.send_messages = True
-    allow.read_messages = True
-    allow.manage_messages = True
-    allow.embed_links = True
-    allow.attach_files = True
-    allow.read_message_history = True
-    allow.manage_channel = True
-    await client.edit_channel_permissions(chChannel, chRole, allow=allow)
+    overwrite = discord.PermissionOverwrite()
+    overwrite.send_messages = True
+    overwrite.read_messages = True
+    overwrite.manage_messages = True
+    overwrite.embed_links = True
+    overwrite.attach_files = True
+    overwrite.read_message_history = True
+    overwrite.manage_channel = True
+    await client.edit_channel_permissions(chChannel, chRole, overwrite)
 
     # notify owner
     owner = db.get_user(server.owner.id)

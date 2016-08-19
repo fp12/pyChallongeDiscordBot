@@ -93,7 +93,7 @@ class Command:
             if exc:
                 return False, exc
             if acc and self.attributes.tournamentState:
-                if not await validate_tournament_state(acc, db_t.challonge_id, self.attributes.tournamentState):  # can raise
+                if not await validate_tournament_state(acc, context_cache['db_tournament'].challonge_id, self.attributes.tournamentState):  # can raise
                     return False, BadTournamentState()
 
         reqParamsExpected = len(self.reqParams)
@@ -199,7 +199,7 @@ class CommandsHandler:
     def _get_command_and_postcommand(self, client, message, context_cache):
         if not message.channel.is_private:
             commandTrigger = context_cache['db_server'].trigger
-            regex = '(?:%s\s?|<!?%s>\s)%s' % (commandTrigger, client.user.id, CommandsHandler.base_regex)
+            regex = '(?:%s\s?|<@!?%s>\s)%s' % (commandTrigger, client.user.id, CommandsHandler.base_regex)
             r = re.compile(regex, re.IGNORECASE)
         else:
             r = CommandsHandler.base_compiled_re

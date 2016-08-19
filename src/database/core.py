@@ -1,5 +1,3 @@
-import sqlite3
-
 from config import app_config
 from log import log_db
 from utils import *
@@ -17,7 +15,16 @@ def to_list(x):
 
 class DBAccess():
     def __init__(self):
-        self._conn = sqlite3.connect(app_config['database'])
+        if 'heroku' in app_config:
+            import psycopg2
+            from urllib.parse import urlparse
+            url = urlparse(app_config['database'])
+            self._conn = psycopg2.connect(database=url.path[1:], user=url.username, password=url.password, host=url.hostname, port=url.port)
+            self._token = '%s'
+        else:
+            import sqlite3
+            self._conn = sqlite3.connect(app_config['database'])
+            self._token = '?'
         self._c = self._conn.cursor()
 
     def __del__(self):
@@ -30,8 +37,8 @@ class DBAccess():
         columns = to_list(columns) if columns else None
         if not columns or len(columns) == len(values):
             cols = ' ({0})'.format(', '.join(columns)) if columns else ''
-            request = 'INSERT INTO {0}{1} VALUES ({2})'.format(str(table), cols, ', '.join(['?'] * len(values)))
-            log_db.info((request, values))
+            request = 'INSERT INTO {0}{1} VALUES ({2})'.format(str(table), cols, ', '.join([self._token] * len(values)))
+            log_db.debug((request, values))
             try:
                 self._c.execute(request, values)
                 self._conn.commit()
@@ -52,14 +59,15 @@ class DBAccess():
 
         # build select clause string and arguments
         select_clause_args = []
-        select_clause_str = map(lambda x: '(SELECT {0} FROM {1} WHERE {2} = ?)'.format(x, str(table), where_column), cols)
+        select_clause_str = map(lambda x: '(SELECT {0} FROM {1} WHERE {2} = {3})'.format(x, str(table), where_column), cols, self._token)
 
         # build request
         columns_names = ', '.join(cols)
         selects = ', '.join(select_clause_str)
-        request = 'INSERT OR REPLACE INTO {0} ({1}, {2}, {3}) VALUES (?, ?, {4})'.format(str(table), where_column, replace_column, columns_names, selects)
+        request = 'INSERT OR REPLACE INTO {0} ({1}, {2}, {3}) VALUES ({4}, {4}, {5})'
+        request = request.format(str(table), where_column, replace_column, columns_names, self._token, selects)
         args = (where_value, replace_value) + (where_value,) * len(cols)
-        log_db.info((request, args))
+        log_db.debug((request, args))
         try:
             self._c.execute(request, args)
             self._conn.commit()
@@ -67,8 +75,8 @@ class DBAccess():
             log_db.exception()
 
     def _delete(self, table, column, value):
-        request = 'DELETE FROM {0} WHERE {1} = ?'.format(str(table), column)
-        log_db.info((request, value))
+        request = 'DELETE FROM {0} WHERE {1} = {2}'.format(str(table), column, self._token)
+        log_db.debug((request, value))
         self._c.execute(request, (value,))
         self._conn.commit()
 
@@ -76,18 +84,18 @@ class DBAccess():
         request = 'SELECT {0} FROM {1}'.format(', '.join(to_list(columns)), str(table))
         try:
             if where_column:
-                request = request + ' WHERE {0} = ?'.format(where_column)
-                log_db.info((request, where_value))
+                request = request + ' WHERE {0} = {1}'.format(where_column, self._token)
+                log_db.debug((request, where_value))
                 self._c.execute(request, (where_value,))
             else:
-                log_db.info(request)
+                log_db.debug(request)
                 self._c.execute(request)
         except:
             log_db.exception()
 
     def _update(self, table, set_column, set_value, where_column, where_value):
-        request = 'UPDATE {0} SET {1} = ? WHERE {2} = ?'.format(str(table), set_column, where_column)
-        log_db.info(request, (set_value, where_value))
+        request = 'UPDATE {0} SET {1} = {3} WHERE {2} = {3}'.format(str(table), set_column, where_column, self._token)
+        log_db.debug(request, (set_value, where_value))
         try:
             self._c.execute(request, (set_value, where_value))
             self._conn.commit()
