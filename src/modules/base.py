@@ -39,7 +39,7 @@ class Template:
     def __init__(self, template):
         self.template = template
         self.structs = {}
-        with open('./config/%s' % template) as data_file:
+        with open('../config/%s' % template) as data_file:
             raw_template = json.load(data_file)
             if 'structs' in raw_template:
                 self.structs = raw_template['structs']
