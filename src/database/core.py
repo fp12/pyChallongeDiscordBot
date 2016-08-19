@@ -1,6 +1,6 @@
 import sqlite3
 
-from config import appConfig
+from config import app_config
 from log import log_db
 from utils import *
 from database.models import *
@@ -11,125 +11,164 @@ userFormat = '| {0:19}| {1:19}| {2:15}|'
 profileFormat = '| {0:45}| {1:12} | {2:10} | {3:5} |'
 
 
+def to_list(x):
+    return x if isinstance(x, list) else [x]
+
+
 class DBAccess():
     def __init__(self):
-        self._conn = sqlite3.connect(appConfig['db'])
+        self._conn = sqlite3.connect(app_config['database'])
         self._c = self._conn.cursor()
 
     def __del__(self):
         self._conn.close()
 
     def _log_exc(self, funcname, e):
-        log_db.info('DBAccess Exception in {0}: {1}'.format(funcname, e))
+        log_db.error('DBAccess Exception in {0}: {1}'.format(funcname, e))
+
+    def _insert(self, table, columns, values):
+        columns = to_list(columns) if columns else None
+        if not columns or len(columns) == len(values):
+            cols = ' ({0})'.format(', '.join(columns)) if columns else ''
+            request = 'INSERT INTO {0}{1} VALUES ({2})'.format(str(table), cols, ', '.join(['?'] * len(values)))
+            log_db.info((request, values))
+            try:
+                self._c.execute(request, values)
+                self._conn.commit()
+            except:
+                log_db.exception()
+        else:
+            log_db.error('[_insert] mismatch in numbers: {0} columns / {1} values'.format(str(columns), str(values)))
+
+    def _insert_or_replace(self, table, replace_column, replace_value, where_column, where_value):
+        def __add(x):
+            select_clause_args.append(x)
+            select_clause_args.extend((str(table), where_column, where_value))
+
+        # get non mentionned colums
+        cols = table.columns[:]  # copy
+        cols.remove(replace_column)
+        cols.remove(where_column)
+
+        # build select clause string and arguments
+        select_clause_args = []
+        select_clause_str = map(lambda x: '(SELECT {0} FROM {1} WHERE {2} = ?)'.format(x, str(table), where_column), cols)
+
+        # build request
+        columns_names = ', '.join(cols)
+        selects = ', '.join(select_clause_str)
+        request = 'INSERT OR REPLACE INTO {0} ({1}, {2}, {3}) VALUES (?, ?, {4})'.format(str(table), where_column, replace_column, columns_names, selects)
+        args = (where_value, replace_value) + (where_value,) * len(cols)
+        log_db.info((request, args))
+        try:
+            self._c.execute(request, args)
+            self._conn.commit()
+        except:
+            log_db.exception()
+
+    def _delete(self, table, column, value):
+        request = 'DELETE FROM {0} WHERE {1} = ?'.format(str(table), column)
+        log_db.info((request, value))
+        self._c.execute(request, (value,))
+        self._conn.commit()
+
+    def _select(self, table, columns, where_column=None, where_value=None):
+        request = 'SELECT {0} FROM {1}'.format(', '.join(to_list(columns)), str(table))
+        try:
+            if where_column:
+                request = request + ' WHERE {0} = ?'.format(where_column)
+                log_db.info((request, where_value))
+                self._c.execute(request, (where_value,))
+            else:
+                log_db.info(request)
+                self._c.execute(request)
+        except:
+            log_db.exception()
+
+    def _update(self, table, set_column, set_value, where_column, where_value):
+        request = 'UPDATE {0} SET {1} = ? WHERE {2} = ?'.format(str(table), set_column, where_column)
+        log_db.info(request, (set_value, where_value))
+        try:
+            self._c.execute(request, (set_value, where_value))
+            self._conn.commit()
+        except:
+            log_db.exception()
 
     # Servers
 
     def add_server(self, server, channel):
-        try:
-            self._c.execute('INSERT INTO Server (DiscordID, OwnerID, ManagementChannelID) VALUES(?, ?, ?)',
-                            (server.id, server.owner.id, channel.id))
-            self._conn.commit()
-        except Exception as e:
-            self._log_exc('add_server', e)
+        self._insert(table=DBServer, columns=DBServer.columns, values=(server.id, server.owner.id, channel.id, None))
 
     def remove_server(self, server_id):
-        try:
-            self._c.execute('DELETE FROM Server WHERE DiscordID = ?', (server_id,))
-            self._conn.commit()
-        except Exception as e:
-            self._log_exc('remove_server', e)
+        self._delete(table=DBServer, column=DBServer.server_id, value=server_id)
 
     def get_servers_id(self):
-        self._c.execute("SELECT DiscordID FROM Server")
+        self._select(table=DBServer, columns=DBServer.server_id)
         return [i[0] for i in self._c.fetchall()]
 
     def get_servers_owners(self):
-        self._c.execute("SELECT OwnerID FROM Server")
+        self._select(table=DBServer, columns=DBServer.owner_id)
         return [i[0] for i in self._c.fetchall()]
 
     def get_server(self, server):
-        self._c.execute("SELECT * FROM Server WHERE DiscordID=?", (server.id,))
+        self._select(table=DBServer, columns='*', where_column=DBServer.server_id, where_value=server.id)
         return DBServer(self._c.fetchone())
 
     def set_server_trigger(self, server, trigger):
-        try:
-            self._c.execute("UPDATE Server SET Trigger=? WHERE DiscordID=?", (trigger, server.id))
-            self._conn.commit()
-        except Exception as e:
-            self._log_exc('set_server_trigger', e)
+        self._update(table=DBServer,
+                     set_column=DBServer.trigger, set_value=trigger,
+                     where_column=DBServer.server_id, where_value=server.id)
 
     def dump_servers(self):
-        self._c.execute("SELECT * FROM Server")
+        self._select(table=DBServer, columns='*')
         rows = self._c.fetchall()
         return print_array('Servers database',
-                           serverFormat.format(
-                               'Server ID', 'Owner ID', 'Management Channel'),
+                           serverFormat.format('Server ID', 'Owner ID', 'Management Channel'),
                            rows,
                            lambda x: serverFormat.format(x[0], x[1], x[2]))
 
     # Tournaments
 
     def add_tournament(self, challonge_id, channel, role_id, host_id):
-        try:
-            self._c.execute('INSERT INTO Tournament VALUES(?, ?, ?, ?, ?)',
-                            (challonge_id, channel.server.id, channel.id, role_id, host_id))
-            self._conn.commit()
-        except Exception as e:
-            self._log_exc('add_tournament', e)
+        self._insert(table=DBTournament, columns=DBTournament.columns, values=(challonge_id, channel.server.id, channel.id, role_id, host_id))
 
     def remove_tournament(self, challonge_id):
-        try:
-            self._c.execute('DELETE FROM Tournament WHERE ChallongeID=?', (challonge_id,))
-            self._conn.commit()
-        except Exception as e:
-            self._log_exc('remove_tournament', e)
+        self._delete(table=DBTournament, column=DBTournament.challonge_id, value=challonge_id)
 
     def remove_all_tournaments(self, server):
-        try:
-            self._c.execute('DELETE FROM Tournament WHERE ServerID=?', (server.id,))
-            self._conn.commit()
-        except Exception as e:
-            self._log_exc('remove_all_tournaments', e)
+        self._delete(table=DBTournament, column=DBTournament.server_id, value=server.id)
 
     def get_tournament(self, channel):
-        self._c.execute("SELECT * FROM Tournament WHERE ChannelID=?", (channel.id,))
+        self._select(table=DBTournament, columns='*', where_column=DBTournament.channel_id, where_value=channel.id)
         return DBTournament(self._c.fetchone())
 
     def get_tournaments(self, server_id):
-        self._c.execute("SELECT * FROM Tournament WHERE ServerID=?", (server_id,))
+        self._select(table=DBTournament, columns='*', where_column=DBTournament.server_id, where_value=server_id)
         for x in self._c.fetchall():
             yield DBTournament(x)
 
     # Users
 
     def add_user(self, user):
-        try:
-            self._c.execute('INSERT INTO User(DiscordID) VALUES(?)', (user.id, ))
-            self._conn.commit()
-        except Exception as e:
-            self._log_exc('add_user', e)
+        self._insert(table=DBUser, columns=DBUser.discord_id, values=(user.id,))
 
     def get_user(self, user_id):
-        self._c.execute("SELECT * FROM User WHERE DiscordID=?", (user_id,))
+        self._select(table=DBUser, columns='*', where_column=DBUser.discord_id, where_value=user_id)
         return DBUser(self._c.fetchone())
 
     def set_username(self, user, username):
-        try:
-            self._c.execute('INSERT OR REPLACE INTO User (DiscordID, ChallongeUserName, ChallongeAPIKey) VALUES (?, ?, (SELECT ChallongeAPIKey FROM User WHERE DiscordID = ?))', (user.id, username, user.id))
-            self._conn.commit()
-        except Exception as e:
-            self._log_exc('set_username', e)
+        self._insert_or_replace(table=DBUser,
+                                replace_column=DBUser.challonge_user_name, replace_value=username,
+                                where_column=DBUser.discord_id, where_value=user.id)
 
     def set_api_key(self, user, api_key):
         from encoding import encoder
-        try:
-            self._c.execute('INSERT OR REPLACE INTO User (DiscordID, ChallongeAPIKey, ChallongeUserName) VALUES (?, ?, (SELECT ChallongeUserName FROM User WHERE DiscordID = ?))', (user.id, encoder.encrypt(api_key), user.id))
-            self._conn.commit()
-        except Exception as e:
-            self._log_exc('set_api_key', e)
+        self._insert_or_replace(table=DBUser,
+                                replace_column=DBUser.api_key, replace_value=encoder.encrypt(api_key),
+                                where_column=DBUser.discord_id, where_value=user.id)
 
     def dump_users(self):
-        self._c.execute("SELECT * FROM User")
+        self._select(table=DBUser, columns='*')
         rows = self._c.fetchall()
         return print_array('Challonge users database',
                            userFormat.format(
@@ -140,6 +179,7 @@ class DBAccess():
     # Profiling
 
     def add_profile_log(self, logged_at, scope, time, name, args, server):
+        return  # Profiling disabled for now
         try:
             self._c.execute('INSERT INTO Profile VALUES(?, ?, ?, ?, ?, ?)',
                             (logged_at, scope.name, time, name, args, server))
@@ -148,24 +188,22 @@ class DBAccess():
             self._log_exc('add_profile_log', e)
 
     def dump_profile(self):
+        return 'Profiling disabled for now'
         self._c.execute('SELECT Name, avg(Time) AS AVG, total(Time) as Total, count(Time) FROM Profile GROUP BY Name ORDER BY AVG DESC')
         rows = self._c.fetchall()
         return print_array('Profiling stats',
-                           profileFormat.format('Name', 'Average (ms)', 'Total (ms)', 'Count'),
+                           profileFormat.format(
+                               'Name', 'Average (ms)', 'Total (ms)', 'Count'),
                            rows,
                            lambda x: profileFormat.format(x[0], round(x[1], 2), round(x[2], 2), x[3]))
 
     # Modules
 
     def add_module(self, server_id, name, module_def):
-        try:
-            self._c.execute('INSERT INTO Modules VALUES(?, ?, ?)', (server_id, name, module_def))
-            self._conn.commit()
-        except Exception as e:
-            self._log_exc('add_module', e)
+        self._insert(table=DBModule, columns=DBModule.columns, values=(server_id, name, module_def))
 
     def get_modules(self):
-        self._c.execute("SELECT * FROM Modules")
+        self._select(table=DBModule, columns='*')
         for x in self._c.fetchall():
             yield DBModule(x)
 

@@ -2,7 +2,7 @@ from Crypto.Cipher import DES
 from Crypto import Random
 from base64 import b64encode, b64decode
 
-from config import appConfig
+from config import app_config
 from profiling import profile, Scope
 
 # generate new key:
@@ -13,7 +13,7 @@ class Encoder():
     @profile(Scope.Core)
     def __init__(self):
         # we decode the key once per session
-        self.decodedKey = b64decode(appConfig['cryptokey'])
+        self.decodedKey = b64decode(app_config['cryptokey'])
 
     @profile(Scope.Core)
     def encrypt(self, data):

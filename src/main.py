@@ -2,7 +2,7 @@ import discord
 import asyncio
 
 from const import *
-from config import appConfig
+from config import app_config
 from log import log_main
 from profiling import profile_async, Scope
 from commands.core import cmds
@@ -20,7 +20,9 @@ client = discord.Client()
 async def greet_new_server(server):
     log_main.info(T_Log_JoinedServer.format(server.name, server.id, server.owner.name, server.owner.id))
 
-    db.add_user(server.owner)
+    owner = db.get_user(server.owner.id)
+    if not owner or not owner.discord_id:
+        db.add_user(server.owner)
 
     # get assigned role from add link
     for r in server.me.roles:
@@ -45,7 +47,7 @@ async def on_ready_impl():
         await greet_new_server(s)
 
     for sid in [server_id for server_id in db_servers if client.get_server(server_id) not in client.servers]:
-        log_main.info('on_ready cleaning removed server %d' % sid)
+        log_main.info('on_ready cleaning removed server {0}'.format(sid))
         await cleanup_removed_server(sid)
 
     await modules.set_client(client)
@@ -87,7 +89,7 @@ async def on_challonge_role_assigned(server, chRole):
 
     # notify owner
     owner = db.get_user(server.owner.id)
-    needName = owner.user_name == None
+    needName = owner.challonge_user_name == None
     needKey = owner.api_key == None
 
     if needName and not needKey:
@@ -147,13 +149,13 @@ async def on_member_update(before, after):
 
 @client.event
 async def on_message(message):
-    if message.author == client.user:
+    if message.author == client.user or message.author.bot:
         return
 
     await cmds.try_execute(client, message)
 
 
-client.run(appConfig['discord']['token'])
+client.run(app_config['discord_token'])
 
 
 log_main.debug('app_stop')

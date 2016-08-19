@@ -8,7 +8,7 @@ from challonge import ChallongeException
 
 from const import *
 from utils import *
-# from config import appConfig (needed with cloudconvert)
+# from config import app_config (needed with cloudconvert)
 from log import log_commands_def
 from database.core import db
 from commands.core import *
@@ -19,7 +19,7 @@ from challonge_impl.events import Events
 from discord_impl.permissions import Permissions
 from discord_impl.channel_type import ChannelType
 
-# cloudconvertapi = cloudconvert.Api(appConfig['cloudconvert'])
+# cloudconvertapi = cloudconvert.Api(app_config['cloudconvert'])
 
 
 def get_member(name, server):

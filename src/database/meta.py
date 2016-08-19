@@ -1,17 +1,26 @@
 metaattr = 'metaattr'
+table_name = 'table_name'
+columns = 'columns'
 
 
 class DBModel(type):
-    def __new__(cls, name, bases, namespace, **kargs):
-        # don't propagate kargs but add them to namespace
-        namespace[metaattr] = kargs.get(metaattr)
+    def __new__(cls, name, bases, namespace, **kwargs):
+        # adding table_name as a class member
+        namespace[table_name] = kwargs.get(table_name)
+        # adding columns as named class members
+        for x in kwargs.get(metaattr):
+            namespace[x] = x
+        namespace[columns] = kwargs.get(metaattr)
+        # preparing columns for instances
+        namespace[metaattr] = kwargs.get(metaattr)
+        # don't propagate kwargs: they are into namespace
         return super().__new__(cls, name, bases, namespace)
 
-    def __init__(cls, name, bases, namespace, **kargs):
-        # don't propagate kargs
+    def __init__(cls, name, bases, namespace, **kwargs):
+        # don't propagate kwargs
         super().__init__(name, bases, namespace)
 
-    def __call__(cls, *args, **kwds):
+    def __call__(cls, *args, **kwargs):
         # create instance but don't propagate arguments
         obj = type.__call__(cls)
         # create attributes according to definition
@@ -29,3 +38,6 @@ class DBModel(type):
                 for f in cls.__dict__[metaattr]:
                     setattr(obj, f, None)
         return obj
+
+    def __str__(self):
+        return self.table_name

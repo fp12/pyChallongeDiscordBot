@@ -1,7 +1,7 @@
 import discord
 import challonge
 
-from config import appConfig
+from config import app_config
 from database.core import db
 from challonge_impl.accounts import get as get_account
 
@@ -42,4 +42,4 @@ async def on_ready():
     client.logout()
 
 
-client.run(appConfig['discord']['token'])
+client.run(app_config['discord_token'])

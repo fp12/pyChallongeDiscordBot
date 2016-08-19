@@ -77,20 +77,19 @@ class Command:
         self.helpers = args
         return self
 
-    async def validate_context(self, client, message, postCommand):
-        if get_permissions(message.author, message.channel) < self.attributes.minPermissions:
+    async def validate_context(self, client, message, postCommand, context_cache):
+        if context_cache['permissions'] < self.attributes.minPermissions:
             return False, InsufficientPrivileges()
 
-        if not get_channel_type(message.channel) & self.attributes.channelRestrictions:
+        if not context_cache['channel_type'] & self.attributes.channelRestrictions:
             return False, WrongChannel()
 
         if self.attributes.challongeAccess == ChallongeAccess.RequiredForAuthor:
             acc, exc = await get_account(message.author.id)
             if exc:
                 return False, exc
-        elif self.attributes.challongeAccess == ChallongeAccess.RequiredForHost:
-            db_t = db.get_tournament(message.channel)
-            acc, exc = await get_account(db_t.host_id)
+        elif self.attributes.challongeAccess == ChallongeAccess.RequiredForHost and context_cache['db_tournament']:
+            acc, exc = await get_account(context_cache['db_tournament'].host_id)
             if exc:
                 return False, exc
             if acc and self.attributes.tournamentState:
@@ -111,24 +110,24 @@ class Command:
             return name in self.aliases
         return False
 
-    async def _fetch_helpers(self, message, postCommand):
+    async def _fetch_helpers(self, message, postCommand, context_cache):
         kwargs = {}
         for x in self.helpers:
             if x == 'account':
                 if self.attributes.challongeAccess == ChallongeAccess.RequiredForAuthor:
                     kwargs[x], exc = await get_account(message.author.id)
                 else:
-                    kwargs[x], exc = await get_account(db.get_tournament(message.channel).host_id)
+                    kwargs[x], exc = await get_account(context_cache['db_tournament'].host_id)
             elif x == 'tournament_id':
-                kwargs[x] = db.get_tournament(message.channel).challonge_id
+                kwargs[x] = context_cache['db_tournament'].challonge_id
             elif x == 'tournament_role':
-                roleid = db.get_tournament(message.channel).role_id
+                roleid = context_cache['db_tournament'].role_id
                 kwargs[x] = discord.utils.find(lambda r: r.id == roleid, message.server.roles)
             elif x == 'tournament_channel':
-                channelid = db.get_tournament(message.channel).channel_id
+                channelid = context_cache['db_tournament'].channel_id
                 kwargs[x] = discord.utils.find(lambda c: c.id == channelid, message.server.channels)
             elif x == 'participant_username':
-                kwargs[x] = db.get_user(message.author.id).user_name
+                kwargs[x] = db.get_user(message.author.id).challonge_user_name
             elif x == 'announcement':
                 kwargs[x] = ' '.join(postCommand)
 
@@ -147,10 +146,10 @@ class Command:
 
         return kwargs
 
-    async def execute(self, client, message, postCommand):
+    async def execute(self, client, message, postCommand, context_cache):
         kwargs = {}
         kwargs.update(self._fetch_args(postCommand))
-        kwargs.update(await self._fetch_helpers(message, postCommand))
+        kwargs.update(await self._fetch_helpers(message, postCommand, context_cache))
         await self.cb(client, message, **kwargs)
 
     def pretty_print(self):
@@ -197,9 +196,9 @@ class CommandsHandler:
             return self._add(Command(func.__name__, wrapper, Attributes(**attributes)))
         return decorator
 
-    def _get_command_and_postcommand(self, client, message):
+    def _get_command_and_postcommand(self, client, message, context_cache):
         if not message.channel.is_private:
-            commandTrigger = db.get_server(message.server).trigger
+            commandTrigger = context_cache['db_server'].trigger
             regex = '(?:%s\s?|<!?%s>\s)%s' % (commandTrigger, client.user.id, CommandsHandler.base_regex)
             r = re.compile(regex, re.IGNORECASE)
         else:
@@ -212,21 +211,23 @@ class CommandsHandler:
             return None, None
 
     async def try_execute(self, client, message):
-        command, postCommand = self._get_command_and_postcommand(client, message)
+        context_cache = {'db_server': db.get_server(message.server) if message.server else None}
+        command, postCommand = self._get_command_and_postcommand(client, message, context_cache)
         if command:
-            try:
-                validated, exc = await command.validate_context(client, message, postCommand)
-            except Exception as e:
-                log_commands_core.info('[CommandsHandler.try_execute] [message: {0}] [Exception: {1}]'.format(message.content, e))
-            else:
-                if exc:
-                    await client.send_message(message.channel, exc)
-                elif validated:
-                    await command.execute(client, message, postCommand)
-                    log_commands_core.info(T_Log_ValidatedCommand.format(command.name, 
-                        '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand), 
-                        message, 
-                        'PM' if message.channel.is_private else '{0.channel.server.name}/#{0.channel.name}'.format(message)))
+            # caching a few other things
+            db_tournament = db.get_tournament(message.channel)
+            context_cache.update({'permissions': get_permissions(message.author, message.channel),
+                                  'channel_type': get_channel_type(message.channel, context_cache['db_server'], db_tournament),
+                                  'db_tournament': db_tournament})
+            validated, exc = await command.validate_context(client, message, postCommand, context_cache)
+            if exc:
+                await client.send_message(message.channel, exc)
+            elif validated:
+                await command.execute(client, message, postCommand, context_cache)
+                log_commands_core.info(T_Log_ValidatedCommand.format(command.name,
+                                                                     '' if len(postCommand) == 0 else ' ' + ' '.join(postCommand),
+                                                                     message,
+                                                                     'PM' if message.channel.is_private else '{0.channel.server.name}/#{0.channel.name}'.format(message)))
 
     def dump(self):
         return print_array('Commands Registered',
@@ -249,6 +250,12 @@ class AuthorizedCommandsWrapper:
         self._client = client
         self._message = message
         self._commands = iter(cmds._commands)
+        db_server = db.get_server(message.server)
+        db_tournament = db.get_tournament(message.channel)
+        self._context_cache = {'permissions': get_permissions(self._message.author, self._message.channel),
+                               'channel_type': get_channel_type(self._message.channel, db_server, db_tournament),
+                               'db_server': db_server,
+                               'db_tournament': db_tournament}
 
     async def __aiter__(self):
         return self
@@ -259,7 +266,7 @@ class AuthorizedCommandsWrapper:
         except StopIteration:
             raise StopAsyncIteration
         else:
-            validated, exc = await command.validate_context(self._client, self._message, [])
+            validated, exc = await command.validate_context(self._client, self._message, [], self._context_cache)
             if validated or isinstance(exc, MissingParameters):
                 return command.simple_print()
             else:

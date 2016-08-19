@@ -1,7 +1,7 @@
 from enum import Enum
 
 from const import *
-from config import appConfig
+from config import app_config
 from database.core import db
 
 
@@ -21,10 +21,10 @@ class Permissions(Enum):
 
 
 def get_permissions(user, channel):
-    if user.id == appConfig['devid']:
+    if user.id == app_config['devid']:
         return Permissions.Dev
 
-    if user.id in appConfig['whitelistedbots']:
+    if user.id in app_config['whitelistedbots']:
         return Permissions.TestBots
 
     if not channel.is_private and user.id == channel.server.owner.id:
@@ -39,6 +39,7 @@ def get_permissions(user, channel):
             return Permissions.Organizer
 
     if not channel.is_private:
+        print('get_permissions')
         tournament = db.get_tournament(channel)
         if tournament.role_id:
             memberInServer = [m for m in channel.server.members if m.id == user.id][0]

@@ -52,9 +52,9 @@ challonge_accounts = []
 
 async def get(user_id):
     user = db.get_user(user_id)
-    if not user.discord_id:
+    if not user or not user.discord_id:
         return None, UserNotFound()
-    elif not user.user_name:
+    elif not user.challonge_user_name:
         return None, UserNameNotSet()
     elif not user.api_key:
         return None, APIKeyNotSet()
@@ -63,7 +63,7 @@ async def get(user_id):
         if x['user_id'] == user.discord_id:
             return x['account'], None
 
-    newAccount = Account(user.user_name, encoder.decrypt(user.api_key))
+    newAccount = Account(user.challonge_user_name, encoder.decrypt(user.api_key))
     try:
         is_valid = await newAccount.is_valid
     except ChallongeException:
