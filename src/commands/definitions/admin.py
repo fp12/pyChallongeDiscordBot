@@ -23,7 +23,7 @@ async def shutdown(client, message, **kwargs):
 @optional_args('what')
 @cmds.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Private)
 async def log(client, message, **kwargs):
-	set_level(kwargs.get('level'), kwargs.get('what', None))
+    set_level(kwargs.get('level'), kwargs.get('what', None))
     await client.send_message(message.channel, 'Done')
 
 
