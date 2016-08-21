@@ -297,5 +297,6 @@ def helpers(*args):
     return decorator
 
 
+import commands.definitions.admin  # needed to preload commands
 import commands.definitions.management  # needed to preload commands
 import commands.definitions.challonge  # needed to preload commands

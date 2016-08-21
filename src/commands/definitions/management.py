@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import asyncio
 import discord
 
 from const import *
@@ -7,45 +8,6 @@ from discord_impl.channel_type import ChannelType
 from database.core import db
 from commands.core import cmds, aliases, required_args, optional_args, helpers, AuthorizedCommandsWrapper
 from log import log_commands_def
-
-# DEV ONLY
-
-
-@aliases('exit', 'out')
-@cmds.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
-async def shutdown(client, message, **kwargs):
-    await client.send_message(message.channel, 'logging out...')
-    await client.logout()
-
-
-@optional_args('what')
-@aliases('print')
-@cmds.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
-async def dump(client, message, **kwargs):
-    def decorate(s):
-        return '```ruby\n' + s + '```'
-
-    maxChars = 1800
-    what = kwargs.get('what')
-    if what is None or what == 'commands':
-        for page in paginate(commands.dump(), maxChars):
-            await client.send_message(message.author, decorate(page))
-    if what is None or what == 'profile':
-        for page in paginate(db.dump_profile(), maxChars):
-            await client.send_message(message.author, decorate(page))
-    if what is None or what == 'servers':
-        for page in paginate(db.dump_servers(), maxChars):
-            await client.send_message(message.author, decorate(page))
-    if what is None or what == 'users':
-        for page in paginate(db.dump_users(), maxChars):
-            await client.send_message(message.author, decorate(page))
-
-
-@helpers('announcement')
-@cmds.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Private)
-async def announce(client, message, **kwargs):
-    for owner_id in db.get_servers_owners():
-        await client.send_message(discord.User(id=owner_id), 'Message from bot author: ```ruby\n{0}```'.format(kwargs.get('announcement')))
 
 
 # SERVER OWNER

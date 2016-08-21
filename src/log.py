@@ -12,3 +12,23 @@ log_challonge = logging.getLogger(__prefix + 'challonge_impl')
 
 log_discord = logging.getLogger('discord')
 log_discord.setLevel(logging.ERROR)
+
+
+__loggers = [log_main, log_db, log_modules, log_commands_core, log_commands_def, log_challonge]
+
+
+def set_level(level, logger=None):
+	if level=='error':
+		log_level = logging.ERROR
+	elif level=='warning':
+		log_level = logging.WARNING
+	elif level=='debug':
+		log_level = logging.DEBUG
+	else:
+		log_level = logging.INFO
+
+	if not logger:
+		for l in __loggers:
+			l.setLevel(log_level)
+	else:
+		logging.getLogger(__prefix + logger).setLevel(log_level)
