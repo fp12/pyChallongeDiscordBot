@@ -135,7 +135,7 @@ async def help(client, message, **kwargs):
         command = cmds.find(commandName)
         if command:
             context_cache = {'db_server': db.get_server(message.server) if message.server else None}
-            context_cache.update(cmds.get_context_cache_update(message))
+            context_cache = cmds.get_context_cache_update(context_cache, message)
             validated, exc = await command.validate_context(client, message, [], context_cache)
             if validated or isinstance(exc, MissingParameters):
                 await client.send_message(message.channel, command.pretty_print())

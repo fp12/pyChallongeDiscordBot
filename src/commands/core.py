@@ -210,18 +210,18 @@ class CommandsHandler:
         else:
             return None, None
 
-    def get_context_cache_update(self, message):
+    def get_context_cache_update(self, context_cache, message):
         db_tournament = db.get_tournament(message.channel) if message.server else None
-        return {'permissions': get_permissions(message.author, message.channel),
-                'channel_type': get_channel_type(message.channel, context_cache['db_server'], db_tournament),
-                'db_tournament': db_tournament}
+        return context_cache.update({'permissions': get_permissions(message.author, message.channel),
+                                     'channel_type': get_channel_type(message.channel, context_cache['db_server'], db_tournament),
+                                     'db_tournament': db_tournament})
 
     async def try_execute(self, client, message):
         context_cache = {'db_server': db.get_server(message.server) if message.server else None}
         command, postCommand = self._get_command_and_postcommand(client, message, context_cache)
         if command:
             # caching a few other things
-            context_cache.update(self.get_context_cache_update(message))
+            context_cache = self.get_context_cache_update(context_cache, message)
             validated, exc = await command.validate_context(client, message, postCommand, context_cache)
             if exc:
                 await client.send_message(message.channel, exc)
@@ -254,7 +254,7 @@ class AuthorizedCommandsWrapper:
         self._message = message
         self._commands = iter(cmds._commands)
         self._context_cache = {'db_server': db.get_server(message.server) if message.server else None}
-        self._context_cache.update(cmds.get_context_cache_update(message))
+        self._context_cache = cmds.get_context_cache_update(self._context_cache, message)
 
     async def __aiter__(self):
         return self
