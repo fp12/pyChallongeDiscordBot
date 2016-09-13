@@ -50,7 +50,7 @@ class DBAccess():
     def _insert_or_replace(self, table, replace_column, replace_value, where_column, where_value):
         request = ''
         args = ()
-        if self._token == '?':  # postgresql
+        if self._token == '%s':  # postgresql
             request = 'INSERT INTO {0}({1}, {2}) VALUES (?, ?) ON CONFLICT ({1}) UPDATE SET {2} = ?'
             request = request.format(str(table), where_column, replace_column)
             args = (where_value, replace_value)
