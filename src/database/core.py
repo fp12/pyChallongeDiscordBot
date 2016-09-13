@@ -84,13 +84,14 @@ class DBAccess():
         self._conn.commit()
 
     def _select(self, table, columns, where_column=None, where_value=None):
-        request = 'SELECT {0} FROM {1};'.format(', '.join(to_list(columns)), str(table))
+        request = 'SELECT {0} FROM {1}'.format(', '.join(to_list(columns)), str(table))
         try:
             if where_column:
-                request = request + ' WHERE {0} = {1}'.format(where_column, self._token)
+                request = request + ' WHERE {0} = {1};'.format(where_column, self._token)
                 log_db.debug((request, where_value))
                 self._c.execute(request, (where_value,))
             else:
+                request += ';'
                 log_db.debug(request)
                 self._c.execute(request)
         except:
