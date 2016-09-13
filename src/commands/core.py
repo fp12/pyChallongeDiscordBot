@@ -250,7 +250,7 @@ class AuthorizedCommandsWrapper:
         self._client = client
         self._message = message
         self._commands = iter(cmds._commands)
-        db_server = db.get_server(message.server)
+        db_server = db.get_server(message.server) if message.server else None
         db_tournament = db.get_tournament(message.channel)
         self._context_cache = {'permissions': get_permissions(self._message.author, self._message.channel),
                                'channel_type': get_channel_type(self._message.channel, db_server, db_tournament),

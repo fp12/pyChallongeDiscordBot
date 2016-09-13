@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import asyncio
+import urllib.request
 import discord
 
 from const import *

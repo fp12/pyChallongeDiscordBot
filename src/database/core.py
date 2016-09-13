@@ -60,6 +60,7 @@ class DBAccess():
         # build select clause string and arguments
         select_clause_args = []
         select_clause_str = map(lambda x: '(SELECT {0} FROM {1} WHERE {2} = {3})'.format(x, str(table), where_column), cols, self._token)
+        select_clause_str = ['(SELECT {0} FROM {1} WHERE {2} = {3})'.format(x, str(table), where_column, self._token) for x in cols]
 
         # build request
         columns_names = ', '.join(cols)

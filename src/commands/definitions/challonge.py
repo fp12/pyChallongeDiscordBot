@@ -1,6 +1,5 @@
 import discord
 import asyncio
-import urllib.request
 import string
 # import os (needed with cloudconvert)
 # import cloudconvert
