@@ -7,7 +7,7 @@ from const import *
 from discord_impl.permissions import Permissions
 from discord_impl.channel_type import ChannelType
 from database.core import db
-from commands.core import cmds, aliases, required_args, optional_args, helpers, AuthorizedCommandsWrapper
+from commands.core import cmds, aliases, required_args, optional_args, helpers, AuthorizedCommandsWrapper, MissingParameters
 from log import log_commands_def
 
 
@@ -132,19 +132,13 @@ async def help(client, message, **kwargs):
     """
     commandName = kwargs.get('command')
     if commandName:
-        command = commands.find(commandName)
+        command = cmds.find(commandName)
         if command:
-            try:
-                validated, exc = await command.validate_context(client, message, [])
-            except (InsufficientPrivileges, WrongChannel):
-                await client.send_message(message.channel, '❌ Invalid command or you can\'t use it on this channel')
-                return
-            except:
-                pass
-
-            await client.send_message(message.channel, command.pretty_print())
-        else:
-            await client.send_message(message.channel, '❌ Inexistent command or you don\'t have enough privileges to use it')
+            context_cache = {'db_server': db.get_server(message.server) if message.server else None}
+            context_cache.update(cmds.get_context_cache_update(message))
+            validated, exc = await command.validate_context(client, message, [], context_cache)
+            if validated or isinstance(exc, MissingParameters):
+                await client.send_message(message.channel, command.pretty_print())
     else:
         commandsStr = []
         async for c in AuthorizedCommandsWrapper(client, message):

@@ -95,6 +95,9 @@ class DBAccess():
                 self._c.execute(request)
         except:
             log_db.exception('')
+            return None
+        else:
+            return self._c
 
     def _update(self, table, set_column, set_value, where_column, where_value):
         request = 'UPDATE {0} SET {1} = {3} WHERE {2} = {3}'.format(str(table), set_column, where_column, self._token)
@@ -114,16 +117,16 @@ class DBAccess():
         self._delete(table=DBServer, column=DBServer.server_id, value=server_id)
 
     def get_servers_id(self):
-        self._select(table=DBServer, columns=DBServer.server_id)
-        return [i[0] for i in self._c.fetchall()]
+        cur = self._select(table=DBServer, columns=DBServer.server_id)
+        return [i[0] for i in cur.fetchall()] if cur else []
 
     def get_servers_owners(self):
-        self._select(table=DBServer, columns=DBServer.owner_id)
-        return [i[0] for i in self._c.fetchall()]
+        cur = self._select(table=DBServer, columns=DBServer.owner_id)
+        return [i[0] for i in cur.fetchall()] if cur else []
 
     def get_server(self, server):
-        self._select(table=DBServer, columns='*', where_column=DBServer.server_id, where_value=server.id)
-        return DBServer(self._c.fetchone())
+        cur = self._select(table=DBServer, columns='*', where_column=DBServer.server_id, where_value=server.id)
+        return DBServer(cur.fetchone() if cur else None)
 
     def set_server_trigger(self, server, trigger):
         self._update(table=DBServer,
@@ -131,8 +134,8 @@ class DBAccess():
                      where_column=DBServer.server_id, where_value=server.id)
 
     def dump_servers(self):
-        self._select(table=DBServer, columns='*')
-        rows = self._c.fetchall()
+        cur = self._select(table=DBServer, columns='*')
+        rows = cur.fetchall() if cur else []
         return print_array('Servers database',
                            serverFormat.format('Server ID', 'Owner ID', 'Management Channel'),
                            rows,
@@ -150,12 +153,12 @@ class DBAccess():
         self._delete(table=DBTournament, column=DBTournament.server_id, value=server.id)
 
     def get_tournament(self, channel):
-        self._select(table=DBTournament, columns='*', where_column=DBTournament.channel_id, where_value=channel.id)
-        return DBTournament(self._c.fetchone())
+        cur = self._select(table=DBTournament, columns='*', where_column=DBTournament.channel_id, where_value=channel.id)
+        return DBTournament(cur.fetchone() if cur else None)
 
     def get_tournaments(self, server_id):
-        self._select(table=DBTournament, columns='*', where_column=DBTournament.server_id, where_value=server_id)
-        for x in self._c.fetchall():
+        cur = self._select(table=DBTournament, columns='*', where_column=DBTournament.server_id, where_value=server_id)
+        for x in cur:
             yield DBTournament(x)
 
     # Users
@@ -164,8 +167,8 @@ class DBAccess():
         self._insert(table=DBUser, columns=DBUser.discord_id, values=(user.id,))
 
     def get_user(self, user_id):
-        self._select(table=DBUser, columns='*', where_column=DBUser.discord_id, where_value=user_id)
-        return DBUser(self._c.fetchone())
+        cur = self._select(table=DBUser, columns='*', where_column=DBUser.discord_id, where_value=user_id)
+        return DBUser(cur.fetchone() if cur else None)
 
     def set_username(self, user, username):
         self._insert_or_replace(table=DBUser,
@@ -179,11 +182,10 @@ class DBAccess():
                                 where_column=DBUser.discord_id, where_value=user.id)
 
     def dump_users(self):
-        self._select(table=DBUser, columns='*')
-        rows = self._c.fetchall()
+        cur = self._select(table=DBUser, columns='*')
+        rows = cur.fetchall() if cur else []
         return print_array('Challonge users database',
-                           userFormat.format(
-                               'Discord ID', 'Challonge Username', 'API key set'),
+                           userFormat.format('Discord ID', 'Challonge Username', 'API key set'),
                            rows,
                            lambda x: userFormat.format(x[0], x[1] if x[1] else '/', 'True' if x[2] else 'False'))
 
@@ -214,8 +216,8 @@ class DBAccess():
         self._insert(table=DBModule, columns=DBModule.columns, values=(server_id, name, module_def))
 
     def get_modules(self):
-        self._select(table=DBModule, columns='*')
-        for x in self._c.fetchall():
+        cur = self._select(table=DBModule, columns='*')
+        for x in cur:
             yield DBModule(x)
 
 
