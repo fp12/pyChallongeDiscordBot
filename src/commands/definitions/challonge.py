@@ -249,7 +249,7 @@ async def checkin_setup(client, message, **kwargs):
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
         except ChallongeException:
-            log_commands_def.exception()
+            log_commands_def.exception('')
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         # TODO real text ?
@@ -274,7 +274,7 @@ async def checkin_validate(client, message, **kwargs):
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
         except ChallongeException:
-            log_commands_def.exception()
+            log_commands_def.exception('')
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         # TODO real text ?
@@ -298,7 +298,7 @@ async def checkin_abort(client, message, **kwargs):
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
         except ChallongeException:
-            log_commands_def.exception()
+            log_commands_def.exception('')
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         # TODO real text ?
@@ -328,7 +328,7 @@ async def finalize(client, message, **kwargs):
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
         except ChallongeException:
-            log_commands_def.exception()
+            log_commands_def.exception('')
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         await modules.on_state_change(message.server.id, TournamentState.complete, t_name=t['name'], me=message.server.me)
@@ -460,7 +460,7 @@ async def updatex(client, message, **kwargs):
         try:
             t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
         except ChallongeException:
-            log_commands_def.exception()
+            log_commands_def.exception('')
         else:
             await update_channel_topic(kwargs.get('account'), t, client, message.channel)
         await modules.on_event(message.server.id, Events.on_update_score, p1_name=p1_as_member.name, score=kwargs.get('score'), p2_name=p2_as_member.name, me=message.server.me)
@@ -583,7 +583,7 @@ async def update(client, message, **kwargs):
         try:
             t = await account.tournaments.show(t_id, include_participants=1, include_matches=1)
         except ChallongeException:
-            log_commands_def.exception()
+            log_commands_def.exception('')
         else:
             await update_channel_topic(account, t, client, message.channel)
         await modules.on_event(message.server.id, Events.on_update_score, p1_name=message.author.name, score=kwargs.get('score'), p2_name=opponent_as_member.name, me=message.server.me)

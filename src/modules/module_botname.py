@@ -36,8 +36,8 @@ class Module_BotName(Module):
             if not exc:
                 try:
                     t = await account.tournaments.show(db_t.challonge_id)
-                except ChallongeException as e:
-                    log_modules.exception()
+                except ChallongeException:
+                    log_modules.exception('')
                 else:
                     if t['state'] in TournamentState.__members__.keys():
                         await self.on_state_change(TournamentState[t['state']], t_name=t['name'])

@@ -43,7 +43,7 @@ class DBAccess():
                 self._c.execute(request, values)
                 self._conn.commit()
             except:
-                log_db.exception()
+                log_db.exception('')
         else:
             log_db.error('[_insert] mismatch in numbers: {0} columns / {1} values'.format(str(columns), str(values)))
 
@@ -73,7 +73,7 @@ class DBAccess():
             self._c.execute(request, args)
             self._conn.commit()
         except:
-            log_db.exception()
+            log_db.exception('')
 
     def _delete(self, table, column, value):
         request = 'DELETE FROM {0} WHERE {1} = {2}'.format(str(table), column, self._token)
@@ -92,7 +92,7 @@ class DBAccess():
                 log_db.debug(request)
                 self._c.execute(request)
         except:
-            log_db.exception()
+            log_db.exception('')
 
     def _update(self, table, set_column, set_value, where_column, where_value):
         request = 'UPDATE {0} SET {1} = {3} WHERE {2} = {3}'.format(str(table), set_column, where_column, self._token)
@@ -101,7 +101,7 @@ class DBAccess():
             self._c.execute(request, (set_value, where_value))
             self._conn.commit()
         except:
-            log_db.exception()
+            log_db.exception('')
 
     # Servers
 
