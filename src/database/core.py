@@ -53,7 +53,7 @@ class DBAccess():
         if self._token == '%s':  # postgresql
             request = 'INSERT INTO {0}({1}, {2}) VALUES ({3}, {3}) ON CONFLICT ({1}) UPDATE SET {2} = {3}'
             request = request.format(str(table), where_column, replace_column, self._token)
-            args = (where_value, replace_value)
+            args = (where_value, replace_value, replace_value)
         else:  # sqlite
             # get non mentionned colums
             cols = table.columns[:]  # copy
