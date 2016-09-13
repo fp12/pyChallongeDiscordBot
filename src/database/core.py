@@ -48,26 +48,28 @@ class DBAccess():
             log_db.error('[_insert] mismatch in numbers: {0} columns / {1} values'.format(str(columns), str(values)))
 
     def _insert_or_replace(self, table, replace_column, replace_value, where_column, where_value):
-        def __add(x):
-            select_clause_args.append(x)
-            select_clause_args.extend((str(table), where_column, where_value))
+        request = ''
+        args = ()
+        if self._token == '?':  # postgresql
+            request = 'INSERT INTO {0}({1}, {2}) VALUES (?, ?) ON CONFLICT ({1}) UPDATE SET {2} = ?'
+            request = request.format(str(table), where_column, replace_column)
+            args = (where_value, replace_value)
+        else:  # sqlite
+            # get non mentionned colums
+            cols = table.columns[:]  # copy
+            cols.remove(replace_column)
+            cols.remove(where_column)
 
-        # get non mentionned colums
-        cols = table.columns[:]  # copy
-        cols.remove(replace_column)
-        cols.remove(where_column)
+            # build select clause string and arguments
+            select_clause_str = ['(SELECT {0} FROM {1} WHERE {2} = {3})'.format(x, str(table), where_column, self._token) for x in cols]
 
-        # build select clause string and arguments
-        select_clause_args = []
-        select_clause_str = map(lambda x: '(SELECT {0} FROM {1} WHERE {2} = {3})'.format(x, str(table), where_column), cols, self._token)
-        select_clause_str = ['(SELECT {0} FROM {1} WHERE {2} = {3})'.format(x, str(table), where_column, self._token) for x in cols]
+            # build request
+            columns_names = ', '.join(cols)
+            selects = ', '.join(select_clause_str)
+            request = 'INSERT OR REPLACE INTO {0} ({1}, {2}, {3}) VALUES ({4}, {4}, {5})'
+            request = request.format(str(table), where_column, replace_column, columns_names, self._token, selects)
+            args = (where_value, replace_value) + (where_value,) * len(cols)
 
-        # build request
-        columns_names = ', '.join(cols)
-        selects = ', '.join(select_clause_str)
-        request = 'INSERT OR REPLACE INTO {0} ({1}, {2}, {3}) VALUES ({4}, {4}, {5})'
-        request = request.format(str(table), where_column, replace_column, columns_names, self._token, selects)
-        args = (where_value, replace_value) + (where_value,) * len(cols)
         log_db.debug((request, args))
         try:
             self._c.execute(request, args)
