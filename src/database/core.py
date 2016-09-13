@@ -37,7 +37,7 @@ class DBAccess():
         columns = to_list(columns) if columns else None
         if not columns or len(columns) == len(values):
             cols = ' ({0})'.format(', '.join(columns)) if columns else ''
-            request = 'INSERT INTO {0}{1} VALUES ({2})'.format(str(table), cols, ', '.join([self._token] * len(values)))
+            request = 'INSERT INTO {0}{1} VALUES ({2});'.format(str(table), cols, ', '.join([self._token] * len(values)))
             log_db.debug((request, values))
             try:
                 self._c.execute(request, values)
@@ -51,7 +51,7 @@ class DBAccess():
         request = ''
         args = ()
         if self._token == '%s':  # postgresql
-            request = 'INSERT INTO {0}({1}, {2}) VALUES ({3}, {3}) ON CONFLICT ({1}) DO UPDATE SET {2} = {3}'
+            request = 'INSERT INTO {0}({1}, {2}) VALUES ({3}, {3}) ON CONFLICT ({1}) DO UPDATE SET {2} = {3};'
             request = request.format(str(table), where_column, replace_column, self._token)
             args = (where_value, replace_value, replace_value)
         else:  # sqlite
@@ -66,7 +66,7 @@ class DBAccess():
             # build request
             columns_names = ', '.join(cols)
             selects = ', '.join(select_clause_str)
-            request = 'INSERT OR REPLACE INTO {0} ({1}, {2}, {3}) VALUES ({4}, {4}, {5})'
+            request = 'INSERT OR REPLACE INTO {0} ({1}, {2}, {3}) VALUES ({4}, {4}, {5});'
             request = request.format(str(table), where_column, replace_column, columns_names, self._token, selects)
             args = (where_value, replace_value) + (where_value,) * len(cols)
 
@@ -78,13 +78,13 @@ class DBAccess():
             log_db.exception('')
 
     def _delete(self, table, column, value):
-        request = 'DELETE FROM {0} WHERE {1} = {2}'.format(str(table), column, self._token)
+        request = 'DELETE FROM {0} WHERE {1} = {2};'.format(str(table), column, self._token)
         log_db.debug((request, value))
         self._c.execute(request, (value,))
         self._conn.commit()
 
     def _select(self, table, columns, where_column=None, where_value=None):
-        request = 'SELECT {0} FROM {1}'.format(', '.join(to_list(columns)), str(table))
+        request = 'SELECT {0} FROM {1};'.format(', '.join(to_list(columns)), str(table))
         try:
             if where_column:
                 request = request + ' WHERE {0} = {1}'.format(where_column, self._token)
@@ -95,12 +95,12 @@ class DBAccess():
                 self._c.execute(request)
         except:
             log_db.exception('')
-            return None
+            return []
         else:
             return self._c
 
     def _update(self, table, set_column, set_value, where_column, where_value):
-        request = 'UPDATE {0} SET {1} = {3} WHERE {2} = {3}'.format(str(table), set_column, where_column, self._token)
+        request = 'UPDATE {0} SET {1} = {3} WHERE {2} = {3};'.format(str(table), set_column, where_column, self._token)
         log_db.debug(request, (set_value, where_value))
         try:
             self._c.execute(request, (set_value, where_value))

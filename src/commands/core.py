@@ -221,7 +221,7 @@ class CommandsHandler:
         command, postCommand = self._get_command_and_postcommand(client, message, context_cache)
         if command:
             # caching a few other things
-            self._context_cache.update(self.get_context_cache_update(message))
+            context_cache.update(self.get_context_cache_update(message))
             validated, exc = await command.validate_context(client, message, postCommand, context_cache)
             if exc:
                 await client.send_message(message.channel, exc)
