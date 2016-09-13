@@ -42,8 +42,8 @@ class DBAccess():
             try:
                 self._c.execute(request, values)
                 self._conn.commit()
-            except:
-                log_db.exception('')
+            except psycopg2.Error as e:
+                log_db.error(e.pgerror)
         else:
             log_db.error('[_insert] mismatch in numbers: {0} columns / {1} values'.format(str(columns), str(values)))
 
@@ -74,8 +74,8 @@ class DBAccess():
         try:
             self._c.execute(request, args)
             self._conn.commit()
-        except:
-            log_db.exception('')
+        except psycopg2.Error as e:
+            log_db.error(e.pgerror)
 
     def _delete(self, table, column, value):
         request = 'DELETE FROM {0} WHERE {1} = {2};'.format(str(table), column, self._token)
@@ -94,8 +94,8 @@ class DBAccess():
                 request += ';'
                 log_db.debug(request)
                 self._c.execute(request)
-        except:
-            log_db.exception('')
+        except psycopg2.Error as e:
+            log_db.error(e.pgerror)
             return []
         else:
             return self._c
@@ -106,8 +106,8 @@ class DBAccess():
         try:
             self._c.execute(request, (set_value, where_value))
             self._conn.commit()
-        except:
-            log_db.exception('')
+        except psycopg2.Error as e:
+            log_db.error(e.pgerror)
 
     # Servers
 
