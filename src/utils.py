@@ -3,6 +3,7 @@ from enum import Enum
 
 from log import log_main
 
+
 class AutoEnum(Enum):
     def __new__(cls):
         value = len(cls.__members__) + 1
@@ -20,7 +21,6 @@ def print_array(title, header, iterable, func):
     headerLineSeparators = vertSep.ljust(lineLen - 1, headerSep) + vertSep
 
     arr = []
-
     arr.append(arrayLineSeparators)
     arr.append(vertSep + ' ' + title.ljust(lineLen - 3) + vertSep)
     arr.append(headerLineSeparators)

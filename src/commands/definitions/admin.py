@@ -40,13 +40,32 @@ async def dump(client, message, **kwargs):
         for page in paginate(commands.dump(), maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'profile':
-        for page in paginate(db.dump_profile(), maxChars):
-            await client.send_message(message.author, decorate(page))
+        pass
     if what is None or what == 'servers':
-        for page in paginate(db.dump_servers(), maxChars):
+        txt = '| Servers\n'
+        txt += '| Server Name (ID) | Owner Name (ID) | Trigger |\n'
+        for s in db.get_servers():
+            if s.server_id:
+                server = client.get_server(s.server_id)
+                txt += '| {0.name} ({0.id}) | {1.name} ({1.id}) | {2} |\n'.format(server, server.owner, s.trigger)
+            else:
+                txt += '| I N V A L I D   S E R V E R   I D |\n'
+        for page in paginate(txt, maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'users':
-        for page in paginate(db.dump_users(), maxChars):
+        txt = '| Users\n'
+        txt += '| User Name (ID) | Challonge username |\n'
+        for u in db.get_users():
+            if u.discord_id:
+                user = None
+                for s in client.servers:
+                    user = discord.utils.get(server.members, id=u.discord_id)
+                    if user:
+                        break
+                txt += '| {0.name} ({0.id}) | {1} |\n'.format(user, u.challonge_user_name)
+            else:
+                txt += '| I N V A L I D   U S E R   I D |\n'
+        for page in paginate(txt, maxChars):
             await client.send_message(message.author, decorate(page))
 
 

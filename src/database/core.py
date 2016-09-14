@@ -1,12 +1,6 @@
 from config import app_config
 from log import log_db
-from utils import *
 from database.models import *
-
-
-serverFormat = '| {0:19}| {1:19}| {2:19}|'
-userFormat = '| {0:19}| {1:19}| {2:15}|'
-profileFormat = '| {0:45}| {1:12} | {2:10} | {3:5} |'
 
 
 def to_list(x):
@@ -134,13 +128,9 @@ class DBAccess():
                      set_column=DBServer.trigger, set_value=trigger,
                      where_column=DBServer.server_id, where_value=server.id)
 
-    def dump_servers(self):
+    def get_servers(self):
         cur = self._select(table=DBServer, columns='*')
-        rows = cur.fetchall() if cur else []
-        return print_array('Servers database',
-                           serverFormat.format('Server ID', 'Owner ID', 'Management Channel'),
-                           rows,
-                           lambda x: serverFormat.format(x[0], x[1], x[2]))
+        return [DBServer(x) for x in cur]
 
     # Tournaments
 
@@ -182,34 +172,9 @@ class DBAccess():
                                 replace_column=DBUser.api_key, replace_value=encoder.encrypt(api_key),
                                 where_column=DBUser.discord_id, where_value=user.id)
 
-    def dump_users(self):
+    def get_users(self):
         cur = self._select(table=DBUser, columns='*')
-        rows = cur.fetchall() if cur else []
-        return print_array('Challonge users database',
-                           userFormat.format('Discord ID', 'Challonge Username', 'API key set'),
-                           rows,
-                           lambda x: userFormat.format(x[0], x[1] if x[1] else '/', 'True' if x[2] else 'False'))
-
-    # Profiling
-
-    def add_profile_log(self, logged_at, scope, time, name, args, server):
-        return  # Profiling disabled for now
-        try:
-            self._c.execute('INSERT INTO Profile VALUES(?, ?, ?, ?, ?, ?)',
-                            (logged_at, scope.name, time, name, args, server))
-            self._conn.commit()
-        except Exception as e:
-            self._log_exc('add_profile_log', e)
-
-    def dump_profile(self):
-        return 'Profiling disabled for now'
-        self._c.execute('SELECT Name, avg(Time) AS AVG, total(Time) as Total, count(Time) FROM Profile GROUP BY Name ORDER BY AVG DESC')
-        rows = self._c.fetchall()
-        return print_array('Profiling stats',
-                           profileFormat.format(
-                               'Name', 'Average (ms)', 'Total (ms)', 'Count'),
-                           rows,
-                           lambda x: profileFormat.format(x[0], round(x[1], 2), round(x[2], 2), x[3]))
+        return [DBUser(x) for x in cur]
 
     # Modules
 

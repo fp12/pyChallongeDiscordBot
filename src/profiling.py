@@ -2,7 +2,9 @@ import time
 from enum import Enum
 
 import utils
-from database.core import db
+
+
+__enabled = False
 
 
 class Scope(Enum):
@@ -23,13 +25,15 @@ class Profiler():
 
     def __exit__(self, *args):
         end = time.time()
-        db.add_profile_log(self._start, self._scope, round((end - self._start) * 1000, 2), self._name, self._args, self._server)
 
 
 def profile(scope):
     def decorator(func):
         def wrapper(*args, **kwargs):
-            with Profiler(scope, name=func.__qualname__, args=repr(args)) as p:
+            if __enabled:
+                with Profiler(scope, name=func.__qualname__, args=repr(args)) as p:
+                    return func(*args, **kwargs)
+            else:
                 return func(*args, **kwargs)
         return wrapper
     return decorator
@@ -38,7 +42,10 @@ def profile(scope):
 def profile_async(scope):
     def decorator(func):
         async def wrapper(*args, **kwargs):
-            with Profiler(scope, name=func.__qualname__, args=repr(args)) as p:
+            if __enabled:
+                with Profiler(scope, name=func.__qualname__, args=repr(args)) as p:
+                    return await func(*args, **kwargs)
+            else:
                 return await func(*args, **kwargs)
         return wrapper
     return decorator
