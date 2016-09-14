@@ -58,7 +58,7 @@ async def dump(client, message, **kwargs):
         for u in db.get_users():
             if u.discord_id:
                 user = None
-                for s in client.servers:
+                for server in client.servers:
                     user = discord.utils.get(server.members, id=u.discord_id)
                     if user:
                         break
