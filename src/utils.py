@@ -63,3 +63,28 @@ def get_user_id_from_mention(mention):
         return regexRes[0]
     else:
         return 0
+
+
+class ArrayFormater:
+    def __init__(self, title, row_count):
+        self.title = title
+        self.row_count = row_count
+        self.length_counter = [0] * row_count
+        self.lines = []
+
+    def add(self, *args):
+        assert(len(args) == self.row_count)
+        self.lines.append(tuple(args))
+        for index in range(self.row_count):
+            self.length_counter[index] = max(self.length_counter[index], len(args[index]))
+
+    def get(self):
+        pattern = '|'
+        for index in range(self.row_count):
+            match = '{0[' + str(index) + ']:{0}}}'.format(self.length_counter[index])
+            print(match)
+            pattern += ' {0} |'.format(match)
+        txt = '| ' + self.title + '\n'
+        for line in self.lines:
+            txt += pattern.format(line) + '\n'
+        return txt

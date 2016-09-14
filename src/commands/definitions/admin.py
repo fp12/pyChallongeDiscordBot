@@ -6,7 +6,7 @@ from discord_impl.permissions import Permissions
 from discord_impl.channel_type import ChannelType
 from database.core import db
 from log import set_level
-from utils import paginate
+from utils import ArrayFormater, paginate
 
 
 # DEV ONLY
@@ -42,19 +42,19 @@ async def dump(client, message, **kwargs):
     if what is None or what == 'profile':
         pass
     if what is None or what == 'servers':
-        txt = '| Servers\n'
-        txt += '| Server Name (ID) | Owner Name (ID) | Trigger |\n'
+        a = ArrayFormater('Servers', 3)
+        entries = []
+        a.add('Server Name (ID)', 'Owner Name (ID)', 'Trigger')
         for s in db.get_servers():
+            server = message.server
             if s.server_id:
                 server = client.get_server(s.server_id)
-                txt += '| {0.name} ({0.id}) | {1.name} ({1.id}) | {2} |\n'.format(server, server.owner, s.trigger)
-            else:
-                txt += '| I N V A L I D   S E R V E R   I D |\n'
-        for page in paginate(txt, maxChars):
+                a.add('{0.name} ({0.id})'.format(server), '{0.name} ({0.id})'.format(server.owner), str(s.trigger))
+        for page in paginate(a.get(), maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'users':
-        txt = '| Users\n'
-        txt += '| User Name (ID) | Challonge username |\n'
+        a = ArrayFormater('Users', 2)
+        a.add('User Name (ID)', 'Challonge username')
         for u in db.get_users():
             if u.discord_id:
                 user = None
@@ -62,10 +62,8 @@ async def dump(client, message, **kwargs):
                     user = discord.utils.get(server.members, id=u.discord_id)
                     if user:
                         break
-                txt += '| {0.name} ({0.id}) | {1} |\n'.format(user, u.challonge_user_name)
-            else:
-                txt += '| I N V A L I D   U S E R   I D |\n'
-        for page in paginate(txt, maxChars):
+                a.add('{0.name} ({0.id})'. format(user), str(u.challonge_user_name))
+        for page in paginate(a.get(), maxChars):
             await client.send_message(message.author, decorate(page))
 
 
