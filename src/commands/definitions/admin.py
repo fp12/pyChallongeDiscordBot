@@ -71,6 +71,9 @@ async def dump(client, message, **kwargs):
         for page in paginate(a.get(), maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'tournaments':
+        acc, exc = await get_account('fp12')
+        if not acc:
+            return
         a = ArrayFormater('Tournaments', 3)
         a.add('Server Name (ID)', 'Host Name (ID)', 'Tournament Url')
         for server in client.servers:
@@ -78,7 +81,7 @@ async def dump(client, message, **kwargs):
                 host = discord.utils.get(server.members, id=t.host_id)
                 url = 'Not Found'
                 try:
-                    t = await get_account('fp12').tournaments.show(t.challonge_id)
+                    t = await acc.tournaments.show(t.challonge_id)
                     url = t['full-challonge-url']
                 except ChallongeException as e:
                     url = T_OnChallongeException.format(e)
