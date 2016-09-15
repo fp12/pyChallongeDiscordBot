@@ -3,6 +3,7 @@ import discord
 
 from challonge import ChallongeException
 
+from config import app_config
 from commands.core import cmds, aliases, required_args, optional_args, helpers
 from discord_impl.permissions import Permissions
 from discord_impl.channel_type import ChannelType
@@ -71,7 +72,7 @@ async def dump(client, message, **kwargs):
         for page in paginate(a.get(), maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'tournaments':
-        acc, exc = await get_account('fp12')
+        acc, exc = await get_account(app_config['devid'])
         if not acc:
             return
         a = ArrayFormater('Tournaments', 3)

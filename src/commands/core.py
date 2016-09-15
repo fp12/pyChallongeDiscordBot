@@ -212,11 +212,9 @@ class CommandsHandler:
 
     def get_context_cache_update(self, context_cache, message):
         db_tournament = db.get_tournament(message.channel) if message.server else None
-        print(context_cache)
         context_cache.update({'permissions': get_permissions(message.author, message.channel),
                               'channel_type': get_channel_type(message.channel, context_cache['db_server'], db_tournament),
                               'db_tournament': db_tournament})
-        print(context_cache)
         return context_cache
 
     async def try_execute(self, client, message):
