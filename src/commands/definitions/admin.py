@@ -74,8 +74,7 @@ async def dump(client, message, **kwargs):
         a = ArrayFormater('Tournaments', 3)
         a.add('Server Name (ID)', 'Host Name (ID)', 'Tournament Url')
         for server in client.servers:
-            t = db.get_tournaments(server.id)
-            if t.challonge_id:
+            for t in db.get_tournaments(server_id):
                 host = discord.utils.get(server.members, id=t.host_id)
                 url = 'Not Found'
                 try:
