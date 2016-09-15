@@ -53,7 +53,7 @@ async def update_channel_topic(account, t, client, channel):
 @optional_args('subdomain')
 @required_args('name', 'url', 'type')
 @cmds.register(minPermissions=Permissions.Organizer,
-               channelRestrictions=ChannelType.NewTourney,
+               channelRestrictions=ChannelType.Mods,
                challongeAccess=ChallongeAccess.RequiredForAuthor)
 async def create(client, message, **kwargs):
     """Create a new tournament
@@ -686,7 +686,7 @@ async def undocheckin(client, message, **kwargs):
 
 
 @required_args('username')
-@cmds.register(channelRestrictions=ChannelType.Any)
+@cmds.register(channelRestrictions=ChannelType.Private)
 async def username(client, message, **kwargs):
     """Set your Challonge username
     Required Argument:

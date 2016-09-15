@@ -31,11 +31,8 @@ T_ValidateCommandContext_BadChannel = '❌ Wrong channel for this command'
 T_ValidateCommandContext_BadPrivileges = '❌ Not enough privileges for this command'
 T_ValidateCommandContext_BadTournamentState = '❌ This command cannot be executed right now (tournament state)'
 
-T_LeaveServer_Instructions = cleandoc("""Thanks you for using the Challonge bot! The management channel and the Challonge role have been removed from server {0}
-    Feel free to send feedback here with command *feedback*""")
-
 T_TournamentCreated = cleandoc("""✅ Tournament **{0}** has been successfully created on challonge!
-    Visit {1} to setup missing information such as game, description...
+    Head to {1} to setup missing information such as game, description...
     The role {2} has been created to be assigned to participants when they join
     The channel {3} has been created to centralize all discussion about this tournament
     Have Fun!""")

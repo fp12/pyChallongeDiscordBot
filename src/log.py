@@ -13,8 +13,6 @@ log_challonge = logging.getLogger(__prefix + 'challonge_impl')
 log_discord = logging.getLogger('discord')
 log_discord.setLevel(logging.ERROR)
 
-log_db.setLevel(logging.DEBUG)
-
 __loggers = [log_main, log_db, log_modules, log_commands_core, log_commands_def, log_challonge]
 
 

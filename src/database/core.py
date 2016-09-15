@@ -110,6 +110,8 @@ class DBAccess():
 
     def remove_server(self, server_id):
         self._delete(table=DBServer, column=DBServer.server_id, value=server_id)
+        self._delete(table=DBTournament, column=DBTournament.server_id, value=server_id)
+        self._delete(table=DBModule, column=DBModule.server_id, value=server_id)
 
     def get_servers_id(self):
         cur = self._select(table=DBServer, columns=DBServer.server_id)

@@ -1,19 +1,23 @@
 import asyncio
 import discord
 
+from challonge import ChallongeException
+
 from commands.core import cmds, aliases, required_args, optional_args, helpers
 from discord_impl.permissions import Permissions
 from discord_impl.channel_type import ChannelType
+from challonge_impl.accounts import get as get_account
 from database.core import db
 from log import set_level
 from utils import ArrayFormater, paginate
+from const import *
 
 
 # DEV ONLY
 
 
 @aliases('exit', 'out')
-@cmds.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
+@cmds.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Private)
 async def shutdown(client, message, **kwargs):
     await client.send_message(message.channel, 'logging out...')
     await client.logout()
@@ -29,11 +33,12 @@ async def log(client, message, **kwargs):
 
 @optional_args('what')
 @aliases('print')
-@cmds.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Any)
+@cmds.register(minPermissions=Permissions.Dev, channelRestrictions=ChannelType.Private)
 async def dump(client, message, **kwargs):
     def decorate(s):
         return '```ruby\n' + s + '```'
 
+    name_id_fmt = '{0.name} ({0.id})'
     maxChars = 1800
     what = kwargs.get('what')
     if what is None or what == 'commands':
@@ -49,7 +54,7 @@ async def dump(client, message, **kwargs):
             server = message.server
             if s.server_id:
                 server = client.get_server(s.server_id)
-                a.add('{0.name} ({0.id})'.format(server), '{0.name} ({0.id})'.format(server.owner), str(s.trigger))
+                a.add(name_id_fmt.format(server), name_id_fmt.format(server.owner), str(s.trigger))
         for page in paginate(a.get(), maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'users':
@@ -62,7 +67,22 @@ async def dump(client, message, **kwargs):
                     user = discord.utils.get(server.members, id=u.discord_id)
                     if user:
                         break
-                a.add('{0.name} ({0.id})'. format(user), str(u.challonge_user_name))
+                a.add(name_id_fmt. format(user), str(u.challonge_user_name))
+        for page in paginate(a.get(), maxChars):
+            await client.send_message(message.author, decorate(page))
+    if what is None or what == 'tournaments':
+        a = ArrayFormater('Tournaments', 3)
+        a.add('Server Name (ID)', 'Host Name (ID)', 'Tournament Url')
+        for t in db.get_tournaments():
+            server = client.get_server(s.server_id)
+            host = discord.utils.get(server.members, id=t.host_id)
+            url = 'Not Found'
+            try:
+                t = await get_account('fp12').tournaments.show(t.challonge_id)
+                url = t['full-challonge-url']
+            except ChallongeException as e:
+                url = T_OnChallongeException.format(e)
+            a.add(name_id_fmt.format(server), name_id_fmt.format(host), url)
         for page in paginate(a.get(), maxChars):
             await client.send_message(message.author, decorate(page))
 

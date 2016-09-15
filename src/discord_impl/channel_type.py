@@ -7,7 +7,6 @@ class ChannelType(Enum):
     Mods = 1 << 2
     Tournament = 1 << 3
     Other = 1 << 4
-    NewTourney = Mods | Other
     Any = Dev | Private | Mods | Tournament | Other
 
     def __or__(self, other):
