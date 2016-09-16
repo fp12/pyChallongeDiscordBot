@@ -621,6 +621,42 @@ async def forfeit(client, message, **kwargs):
         await modules.on_event(message.server.id, Events.on_forfeit, p1_name=message.author.name, t_name=t['name'], me=message.server.me)
 
 
+@required_args('opponent')
+@helpers('account', 'tournament_id', 'tournament_role')
+@cmds.register(minPermissions=Permissions.Organizer,
+               channelRestrictions=ChannelType.Tournament,
+               challongeAccess=ChallongeAccess.RequiredForHost,
+               tournamentState=TournamentStateConstraint.Any)
+async def forfeitx(client, message, **kwargs):
+    """Forfeit for the current tournament
+    If the tournament is pending, you will be removed from the participants list
+    If the tournament is in progress, Challonge will forfeit your potential remaining games
+    and you won't be able to write in this channel anymore
+    No Arguments
+    """
+    account, t_id, opponent = kwargs.get('account'), kwargs.get('tournament_id'), kwargs.get('opponent')
+    author_id, exc = await get_player(account, t_id, opponent)
+    if exc:
+        await client.send_message(message.channel, exc)
+        return
+    elif author_id:
+        try:
+            await account.participants.destroy(t_id, author_id)
+        except ChallongeException as e:
+            await client.send_message(message.author, T_OnChallongeException.format(e))
+    await client.send_message(message.channel, '✅ {0} has been removed from this tournament'.format(opponent))
+    member = get_member(opponent, message.server)
+    if member:
+        await client.remove_roles(member, kwargs.get('tournament_role'))
+    try:
+        t = await account.tournaments.show(t_id, include_participants=1, include_matches=1)
+    except ChallongeException as e:
+        await client.send_message(message.author, T_OnChallongeException.format(e))
+    else:
+        await update_channel_topic(account, t, client, message.channel)
+        await modules.on_event(message.server.id, Events.on_forfeit, p1_name=opponent, t_name=t['name'], me=message.server.me)
+
+
 @helpers('account', 'tournament_id')
 @cmds.register(minPermissions=Permissions.Participant,
                channelRestrictions=ChannelType.Tournament,

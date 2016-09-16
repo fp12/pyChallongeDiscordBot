@@ -82,7 +82,6 @@ class ArrayFormater:
         pattern = '|'
         for index in range(self.row_count):
             match = '{0[' + str(index) + ']:{0}}}'.format(self.length_counter[index])
-            print(match)
             pattern += ' {0} |'.format(match)
         txt = '| ' + self.title + '\n'
         for line in self.lines:
