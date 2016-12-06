@@ -65,7 +65,7 @@ def get_time(time):
         return None
 
 
-async def get_player(account, t_id, name):
+async def get_participant(account, t_id, name):
     try:
         participants = await account.participants.index(t_id)
     except ChallongeException as e:
@@ -73,8 +73,8 @@ async def get_player(account, t_id, name):
     else:
         for x in participants:
             if x['name'] == name:
-                return x['id'], None
-        return None, None
+                return x, None
+    return None, None
 
 
 async def get_players(account, t_id, p1_name, p2_name):
@@ -83,7 +83,8 @@ async def get_players(account, t_id, p1_name, p2_name):
     except ChallongeException as e:
         return None, None, T_OnChallongeException.format(e)
     else:
-        p1_id = p2_id = None
+        p1_id = None
+        p2_id = None
         for x in participants:
             if x['name'] == p1_name:
                 p1_id = x['id']
@@ -285,7 +286,7 @@ async def get_open_match_dependancy(account, t_id, m, p_id):
     except ChallongeException as e:
         return None, T_OnChallongeException.format(e)
     else:
-        loser_txt = '`Loser`' if waiting_for_loser else '`Winner`'
+        log_challonge.info('failed waiting_on_m %s' % (waiting_on_match_id,))
         if waiting_on_m['player1-id'] == 0 or waiting_on_m['player2-id'] == 0:
             return 'you are waiting for more than one match', None
         else:
@@ -293,16 +294,22 @@ async def get_open_match_dependancy(account, t_id, m, p_id):
                 p1 = await account.participants.show(t_id, waiting_on_m['player1-id'])
                 p2 = await account.participants.show(t_id, waiting_on_m['player2-id'])
             except ChallongeException as e:
+                log_challonge.info('failed p1 (%s) or p2 (%s)' % (waiting_on_m['player1-id'], waiting_on_m['player2-id']))
                 return None, T_OnChallongeException.format(e)
             else:
+                loser_txt = '`Loser`' if waiting_for_loser else '`Winner`'
                 return 'you are waiting on the %s of %s 🆚 %s' % (loser_txt, p1['name'], p2['name']), None
 
 
 async def get_next_match(account, t_id, name):
-    p_id, exc = await get_player(account, t_id, name)
+    participant, exc = await get_participant(account, t_id, name)
     if exc:
         return None, exc
-    elif p_id:
+    elif participant:
+        if participant['final-rank'] is not None:
+            return '✅ %s, tournament is over and you endend up at rank #%s' % (name, participant['final-rank']), None
+
+        p_id = participant['id']
         try:
             openMatches = await account.matches.index(t_id, state='open', participant_id=p_id)
         except ChallongeException as e:
