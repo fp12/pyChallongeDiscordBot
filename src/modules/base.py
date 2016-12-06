@@ -20,19 +20,20 @@ def _is_required(value):
 
 def _get_type(value):
     split = value.split('_')
-    if len(split) == 1:
+    split_len = len(split)
+    if split_len == 1:
         return Type.String, ''
-    elif len(split) == 2:
+    if split_len == 2:
         if split[1] == 'time':
             return Type.Time, ''
         if split[1] == 'array':
             return Type.Array, ''
-    elif len(split) == 3:
+    if split_len == 3:
         if split[1] == 'array':
             return Type.Array, split[2]
-        elif split[1] == 'enum':
+        if split[1] == 'enum':
             return Type.Enum, split[2]
-        elif split[1] == 'struct':
+        if split[1] == 'struct':
             return Type.Struct, split[2]
     return Type.String, ''
 
@@ -77,7 +78,8 @@ class Template:
         for key, info in self.structs[struct].items():
             if _is_required(info) and key not in data:
                 return False, key + ' not found in data'
-            elif key in data:
+
+            if key in data:
                 datatype, name = _get_type(info)
                 if datatype == Type.String:
                     ok, clean_data[key] = self._get_string(data[key])
@@ -127,8 +129,7 @@ class Template:
         ok, clean_data = self._get_struct(data, 'main')
         if ok:
             return True, clean_data
-        else:
-            return False, 'validate failed: ' + clean_data
+        return False, 'validate failed: ' + clean_data
 
 
 class Module:

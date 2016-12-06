@@ -61,8 +61,7 @@ def get_user_id_from_mention(mention):
     regexRes = re.findall(r'<@!?([0-9]+)>', mention)
     if len(regexRes) == 1:
         return regexRes[0]
-    else:
-        return 0
+    return 0
 
 
 class ArrayFormater:

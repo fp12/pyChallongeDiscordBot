@@ -106,7 +106,7 @@ class Command:
     def validate_name(self, name):
         if self.name == name:
             return True
-        elif self.aliases is not None:
+        if self.aliases is not None:
             return name in self.aliases
         return False
 
@@ -207,8 +207,7 @@ class CommandsHandler:
         m = r.match(message.content)
         if m:
             return self.find(m.groups()[0]), [v for i, v in enumerate(m.groups()) if i > 0 and v is not None]
-        else:
-            return None, None
+        return None, None
 
     def get_context_cache_update(self, context_cache, message):
         db_tournament = db.get_tournament(message.channel) if message.server else None
@@ -265,12 +264,12 @@ class AuthorizedCommandsWrapper:
             command = next(self._commands)
         except StopIteration:
             raise StopAsyncIteration
+
+        validated, exc = await command.validate_context(self._client, self._message, [], self._context_cache)
+        if validated or isinstance(exc, MissingParameters):
+            return command.simple_print()
         else:
-            validated, exc = await command.validate_context(self._client, self._message, [], self._context_cache)
-            if validated or isinstance(exc, MissingParameters):
-                return command.simple_print()
-            else:
-                return await self.__anext__()
+            return await self.__anext__()
 
 
 def required_args(*args):

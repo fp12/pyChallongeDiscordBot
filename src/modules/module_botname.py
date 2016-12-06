@@ -38,9 +38,9 @@ class Module_BotName(Module):
                     t = await account.tournaments.show(db_t.challonge_id)
                 except ChallongeException:
                     log_modules.exception('')
-                else:
-                    if t['state'] in TournamentState.__members__.keys():
-                        await self.on_state_change(TournamentState[t['state']], t_name=t['name'])
+
+                if t['state'] in TournamentState.__members__.keys():
+                    await self.on_state_change(TournamentState[t['state']], t_name=t['name'])
             else:
                 log_modules.error('Exception in Module_BotName._init_tournaments: %s' % exc)
 

@@ -33,8 +33,7 @@ def profile(scope):
             if __enabled:
                 with Profiler(scope, name=func.__qualname__, args=repr(args)) as p:
                     return func(*args, **kwargs)
-            else:
-                return func(*args, **kwargs)
+            return func(*args, **kwargs)
         return wrapper
     return decorator
 
@@ -45,7 +44,6 @@ def profile_async(scope):
             if __enabled:
                 with Profiler(scope, name=func.__qualname__, args=repr(args)) as p:
                     return await func(*args, **kwargs)
-            else:
-                return await func(*args, **kwargs)
+            return await func(*args, **kwargs)
         return wrapper
     return decorator

@@ -53,16 +53,14 @@ def get_date(date):
     r = re.match('(?P<year>(?:19|20)\d\d)/(?P<month>0[1-9]|1[012])/(?P<day>0[1-9]|[12][0-9]|3[01])', date)
     if r:
         return r.groupdict()
-    else:
-        return None
+    return None
 
 
 def get_time(time):
     r = re.match('(?P<hours>[01]\d|2[0-4]):(?P<minutes>[0-5]\d)', time)
     if r:
         return r.groupdict()
-    else:
-        return None
+    return None
 
 
 async def get_participant(account, t_id, name):
@@ -113,8 +111,7 @@ async def update_score(account, t_id, m_id, score, winner_id):
         await account.matches.update(t_id, m_id, scores_csv=score, winner_id=winner_id)
     except ChallongeException as e:
         return None, T_OnChallongeException.format(e)
-    else:
-        return '✅ These results have been uploaded to Challonge', None
+    return '✅ These results have been uploaded to Challonge', None
 
 
 async def get_participants(account, t):
@@ -190,7 +187,7 @@ async def get_channel_desc(account, t):
     if t['state'] == 'complete':
         return await _get_channel_desc_complete(account, t)
 
-    log_challonge.info('[get_channel_desc] Unreferenced tournament state: ' + t['state'])
+    log_challonge.error('[get_channel_desc] Unreferenced tournament state: ' + t['state'])
     return None, None
 
 
@@ -199,17 +196,17 @@ async def validate_tournament_state(account, t_id, constraint):
         t = await account.tournaments.show(t_id)
     except ChallongeException as e:
         raise e
-    else:
-        if t['state'] == 'pending' and constraint & TournamentStateConstraint.Pending:
-            return True
-        if t['state'] == 'underway' and constraint & TournamentStateConstraint.Underway:
-            return True
-        if t['state'] == 'awaiting_review' and constraint & TournamentStateConstraint.AwaitingReview:
-            return True
-        if t['state'] == 'complete' and constraint & TournamentStateConstraint.Complete:
-            return True
 
-        return False
+    if t['state'] == 'pending' and constraint & TournamentStateConstraint.Pending:
+        return True
+    if t['state'] == 'underway' and constraint & TournamentStateConstraint.Underway:
+        return True
+    if t['state'] == 'awaiting_review' and constraint & TournamentStateConstraint.AwaitingReview:
+        return True
+    if t['state'] == 'complete' and constraint & TournamentStateConstraint.Complete:
+        return True
+
+    return False
 
 
 async def get_current_matches_repr(account, t):
@@ -223,10 +220,7 @@ async def get_current_matches_repr(account, t):
 
     matches.sort(key=match_sort_by_round)
 
-    if t['tournament-type'] == 'single elimination':
-        bracketType = 1
-    else:
-        bracketType = 0
+    bracketType = 1 if t['tournament-type'] == 'single elimination' else 0
 
     desc = []
     for m in matches:
@@ -245,6 +239,7 @@ async def get_current_matches_repr(account, t):
         p1 = [p for p in participants if p['id'] == m['player1-id']][0]
         p2 = [p for p in participants if p['id'] == m['player2-id']][0]
         desc.append('           > {0:20} 🆚 {1:>20}'.format('`' + p1['name'] + '`', '`' + p2['name'] + '`'))
+
     return '\n'.join(desc), None
 
 
@@ -284,74 +279,74 @@ async def get_open_match_dependancy(account, t_id, m, p_id):
     try:
         waiting_on_m = await account.matches.show(t_id, waiting_on_match_id)
     except ChallongeException as e:
-        log_challonge.info('failed waiting_on_m %s - %s' % (waiting_on_match_id, e))
+        log_challonge.error('failed waiting_on_m %s - %s' % (waiting_on_match_id, e))
         return None, T_OnChallongeException.format(e)
+
+    if not waiting_on_m['player1-id'] or not waiting_on_m['player2-id']:
+        return 'you are waiting for more than one match', None
     else:
-        if not waiting_on_m['player1-id'] or not waiting_on_m['player2-id']:
-            return 'you are waiting for more than one match', None
+        try:
+            p1 = await account.participants.show(t_id, waiting_on_m['player1-id'])
+            p2 = await account.participants.show(t_id, waiting_on_m['player2-id'])
+        except ChallongeException as e:
+            log_challonge.error('failed p1 (%s) or p2 (%s) - %s' % (waiting_on_m['player1-id'], waiting_on_m['player2-id'], e))
+            return None, T_OnChallongeException.format(e)
         else:
-            try:
-                p1 = await account.participants.show(t_id, waiting_on_m['player1-id'])
-                p2 = await account.participants.show(t_id, waiting_on_m['player2-id'])
-            except ChallongeException as e:
-                log_challonge.info('failed p1 (%s) or p2 (%s) - %s' % (waiting_on_m['player1-id'], waiting_on_m['player2-id'], e))
-                return None, T_OnChallongeException.format(e)
-            else:
-                loser_txt = '`Loser`' if waiting_for_loser else '`Winner`'
-                return 'you are waiting on the %s of %s 🆚 %s' % (loser_txt, p1['name'], p2['name']), None
+            loser_txt = '`Loser`' if waiting_for_loser else '`Winner`'
+            return 'you are waiting on the %s of %s 🆚 %s' % (loser_txt, p1['name'], p2['name']), None
 
 
 async def get_next_match(account, t_id, name):
     participant, exc = await get_participant(account, t_id, name)
     if exc:
         return None, exc
-    elif participant:
-        if participant['final-rank'] is not None:
-            return '✅ %s, tournament is over and you endend up at rank #%s' % (name, participant['final-rank']), None
 
-        p_id = participant['id']
+    if not participant:
+        return None, '❌ Participant \'%s\' not found' % name
+
+    if participant['final-rank'] is not None:
+        return '✅ %s, tournament is over and you endend up at rank #%s' % (name, participant['final-rank']), None
+
+    p_id = participant['id']
+    try:
+        openMatches = await account.matches.index(t_id, state='open', participant_id=p_id)
+    except ChallongeException as e:
+        return None, T_OnChallongeException.format(e)
+
+    if len(openMatches) > 0:
+        if openMatches[0]['player1-id'] == p_id:
+            opponent_id = openMatches[0]['player2-id']
+        else:
+            opponent_id = openMatches[0]['player1-id']
+
         try:
-            openMatches = await account.matches.index(t_id, state='open', participant_id=p_id)
+            opponent = await account.participants.show(t_id, opponent_id)
         except ChallongeException as e:
             return None, T_OnChallongeException.format(e)
-        else:
-            if len(openMatches) > 0:
-                if openMatches[0]['player1-id'] == p_id:
-                    opponent_id = openMatches[0]['player2-id']
-                else:
-                    opponent_id = openMatches[0]['player1-id']
 
-                try:
-                    opponent = await account.participants.show(t_id, opponent_id)
-                except ChallongeException as e:
-                    return None, T_OnChallongeException.format(e)
-                else:
-                    return '✅ %s, you have an open match 🆚 %s' % (name, opponent['name']), None
-            else:
-                try:
-                    pendingMatches = await account.matches.index(t_id, state='pending', participant_id=p_id)
-                except ChallongeException as e:
-                    return None, T_OnChallongeException.format(e)
-                else:
-                    if len(pendingMatches) > 0:
-                        msg, exc = await get_open_match_dependancy(account, t_id, pendingMatches[0], p_id)
-                        if exc:
-                            log_challonge.info(exc)
-                            return '✅ %s, you have a pending match. Please wait for it to open' % name, None
-                        else:
-                            return '✅ %s, %s' % (name, msg), None
-                    else:
-                        return '✅ %s, you have no pending nor open match. It seems you\'re out of the tournament' % name, None
-    else:
-        return None, '❌ Participant \'%s\' not found' % name
+        return '✅ %s, you have an open match 🆚 %s' % (name, opponent['name']), None
+
+    try:
+        pendingMatches = await account.matches.index(t_id, state='pending', participant_id=p_id)
+    except ChallongeException as e:
+        return None, T_OnChallongeException.format(e)
+
+    if len(pendingMatches) > 0:
+        msg, exc = await get_open_match_dependancy(account, t_id, pendingMatches[0], p_id)
+        if exc:
+            log_challonge.error(exc)
+            return '✅ %s, you have a pending match. Please wait for it to open' % name, None
+
+        return '✅ %s, %s' % (name, msg), None
+
+    return '✅ %s, you have no pending nor open match. It seems you\'re out of the tournament' % name, None
 
 
 def find(cont, key, value):
     found = [x for x in cont if x[key] == value]
     if len(found) > 0:
         return found[0]
-    else:
-        return None
+    return None
 
 
 async def get_blocking_matches(account, t_id):
@@ -359,84 +354,81 @@ async def get_blocking_matches(account, t_id):
         t = await account.tournaments.show(t_id, include_participants=1, include_matches=1)
     except ChallongeException as e:
         return None, T_OnChallongeException.format(e)
-    else:
-        if len(t['matches']) == 0:
-            return '✅ No blocking matches!', None
 
-        matches = t['matches']
-        #  matches.sort(key=match_sort_by_round)
+    if len(t['matches']) == 0:
+        return '✅ No blocking matches!', None
 
-        participants = t['participants']
+    matches = t['matches']
+    participants = t['participants']
+    blocking = {}
 
-        blocking = {}
-
-        def process_prereq_match(m, player, blocked):
-            key = '%s-prereq-match-id' % player
-            if key in m and m[key]:
-                found = False
-                for k, v in blocking.items():
-                    if m[key] in v:
-                        log_challonge.debug('%s is already in blocked matches of %s - adding %s' % (m[key], k, m['id']))
-                        blocking[k].append(m['id'])
-                        found = True
-                if not found:
-                    log_challonge.debug('Adding %s to the blocked list' % m[key])
-                    blocked.append(m['id'])
-                    return m[key]
-            return None
-
-        def check_match(m_id, blocked):
+    def process_prereq_match(m, player, blocked):
+        key = '%s-prereq-match-id' % player
+        if key in m and m[key]:
+            found = False
             for k, v in blocking.items():
-                if m_id in v:
-                    log_challonge.debug('%s is already in blocked matches of %s - adding %s' % (m_id, k, blocked))
-                    blocking[k].extend(blocked)
-                    return
-            m = find(matches, 'id', m_id)
-            if not m:
-                log_challonge.debug('no match with id #%s' % m_id)
+                if m[key] in v:
+                    log_challonge.debug('%s is already in blocked matches of %s - adding %s' % (m[key], k, m['id']))
+                    blocking[k].append(m['id'])
+                    found = True
+            if not found:
+                log_challonge.debug('Adding %s to the blocked list' % m[key])
+                blocked.append(m['id'])
+                return m[key]
+        return None
+
+    def check_match(m_id, blocked):
+        for k, v in blocking.items():
+            if m_id in v:
+                log_challonge.debug('%s is already in blocked matches of %s - adding %s' % (m_id, k, blocked))
+                blocking[k].extend(blocked)
                 return
-            debug_p1Name = 'None' if not m['player1-id'] else find(participants, 'id', m['player1-id'])['name']
-            debug_p2Name = 'None' if not m['player2-id'] else find(participants, 'id', m['player2-id'])['name']
-            log_challonge.debug('check_match %s: %s Vs %s (%s)' % (m_id, debug_p1Name, debug_p2Name, m['state']))
-            if m['state'] == 'pending':
-                processed = process_prereq_match(m, 'player1', blocked)
-                if processed:
-                    log_challonge.debug('%s needs to dive deeper' % processed)
-                    check_match(processed, blocked)
-                processed = process_prereq_match(m, 'player2', blocked)
-                if processed:
-                    blocked.append(processed)
-                    log_challonge.debug('%s needs to dive deeper' % processed)
-                    check_match(processed, blocked)
-            elif m['state'] == 'open':
-                if m_id in blocking:
-                    blocking[m_id].extend(blocked)
-                else:
-                    blocking.update({m_id: blocked})
-            log_challonge.debug(blocking)
+        m = find(matches, 'id', m_id)
+        if not m:
+            log_challonge.debug('no match with id #%s' % m_id)
+            return
+        debug_p1Name = 'None' if not m['player1-id'] else find(participants, 'id', m['player1-id'])['name']
+        debug_p2Name = 'None' if not m['player2-id'] else find(participants, 'id', m['player2-id'])['name']
+        log_challonge.debug('check_match %s: %s Vs %s (%s)' % (m_id, debug_p1Name, debug_p2Name, m['state']))
+        if m['state'] == 'pending':
+            processed = process_prereq_match(m, 'player1', blocked)
+            if processed:
+                log_challonge.debug('%s needs to dive deeper' % processed)
+                check_match(processed, blocked)
+            processed = process_prereq_match(m, 'player2', blocked)
+            if processed:
+                blocked.append(processed)
+                log_challonge.debug('%s needs to dive deeper' % processed)
+                check_match(processed, blocked)
+        elif m['state'] == 'open':
+            if m_id in blocking:
+                blocking[m_id].extend(blocked)
+            else:
+                blocking.update({m_id: blocked})
+        log_challonge.debug(blocking)
 
-        for m in matches:
-            if m['state'] == 'pending' and (m['player1-id'] or m['player2-id']):
-                found = False
-                for k, v in blocking.items():
-                    if m['id'] in v:
-                        log_challonge.debug('%s is already in blocked matches of %s' % (m['id'], k))
-                        found = True
-                if not found:
-                    log_challonge.debug('Checking blockers for %s' % m['id'])
-                    blocked = [m['id']]
-                    if not m['player1-id'] and 'player1-prereq-match-id' in m and m['player1-prereq-match-id']:
-                        check_match(m['player1-prereq-match-id'], blocked)
-                    if not m['player2-id'] and 'player2-prereq-match-id' in m and m['player2-prereq-match-id']:
-                        check_match(m['player2-prereq-match-id'], blocked)
+    for m in matches:
+        if m['state'] == 'pending' and (m['player1-id'] or m['player2-id']):
+            found = False
+            for k, v in blocking.items():
+                if m['id'] in v:
+                    log_challonge.debug('%s is already in blocked matches of %s' % (m['id'], k))
+                    found = True
+            if not found:
+                log_challonge.debug('Checking blockers for %s' % m['id'])
+                blocked = [m['id']]
+                if not m['player1-id'] and 'player1-prereq-match-id' in m and m['player1-prereq-match-id']:
+                    check_match(m['player1-prereq-match-id'], blocked)
+                if not m['player2-id'] and 'player2-prereq-match-id' in m and m['player2-prereq-match-id']:
+                    check_match(m['player2-prereq-match-id'], blocked)
 
-        sorted_m = sorted(blocking.items(), key=lambda x: len(x[1]), reverse=True)
-        log_challonge.debug(sorted_m)
-        msg = ['✅ Blocking matches:']
-        for tup_m in sorted_m:
-            m = find(matches, 'id', tup_m[0])
-            if m:
-                p1 = find(participants, 'id', m['player1-id'])
-                p2 = find(participants, 'id', m['player2-id'])
-                msg.append('`%s game%s blocked` by: %s 🆚 %s' % (len(tup_m[1]), 's' if len(tup_m[1]) > 1 else '', p1['name'], p2['name']))
-        return '\n '.join(msg), None
+    sorted_m = sorted(blocking.items(), key=lambda x: len(x[1]), reverse=True)
+    log_challonge.debug(sorted_m)
+    msg = ['✅ Blocking matches:']
+    for tup_m in sorted_m:
+        m = find(matches, 'id', tup_m[0])
+        if m:
+            p1 = find(participants, 'id', m['player1-id'])
+            p2 = find(participants, 'id', m['player2-id'])
+            msg.append('`%s game%s blocked` by: %s 🆚 %s' % (len(tup_m[1]), 's' if len(tup_m[1]) > 1 else '', p1['name'], p2['name']))
+    return '\n '.join(msg), None
