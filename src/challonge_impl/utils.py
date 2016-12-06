@@ -287,7 +287,7 @@ async def get_open_match_dependancy(account, t_id, m, p_id):
         log_challonge.info('failed waiting_on_m %s - %s' % (waiting_on_match_id, e))
         return None, T_OnChallongeException.format(e)
     else:
-        if waiting_on_m['player1-id'] == 0 or waiting_on_m['player2-id'] == 0:
+        if not waiting_on_m['player1-id'] or not waiting_on_m['player2-id']:
             return 'you are waiting for more than one match', None
         else:
             try:
