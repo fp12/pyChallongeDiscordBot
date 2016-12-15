@@ -32,9 +32,9 @@ def print_array(title, header, iterable, func):
             arr.append(s)
     arr.append(array_line_separators)
 
-    finalStr = '\n'.join(arr)
-    log_main.info(finalStr)
-    return finalStr
+    final_str = '\n'.join(arr)
+    log_main.info(final_str)
+    return final_str
 
 
 def paginate(dump, max_per_page=2000):
@@ -58,9 +58,9 @@ def paginate(dump, max_per_page=2000):
 
 
 def get_user_id_from_mention(mention):
-    regexRes = re.findall(r'<@!?([0-9]+)>', mention)
-    if len(regexRes) == 1:
-        return regexRes[0]
+    results = re.findall(r'<@!?([0-9]+)>', mention)
+    if len(results) == 1:
+        return results[0]
     return 0
 
 
