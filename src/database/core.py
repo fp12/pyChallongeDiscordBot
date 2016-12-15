@@ -1,6 +1,11 @@
 from config import app_config
 from log import log_db
-from database.models import *
+from database.models import DBServer, DBTournament, DBUser, DBModule
+if 'heroku' in app_config:
+    import psycopg2
+    from urllib.parse import urlparse
+else:
+    import sqlite3
 
 
 def to_list(x):
@@ -10,22 +15,16 @@ def to_list(x):
 class DBAccess():
     def __init__(self):
         if 'heroku' in app_config:
-            import psycopg2
-            from urllib.parse import urlparse
             url = urlparse(app_config['database'])
             self._conn = psycopg2.connect(database=url.path[1:], user=url.username, password=url.password, host=url.hostname, port=url.port)
             self._token = '%s'
         else:
-            import sqlite3
             self._conn = sqlite3.connect(app_config['database'])
             self._token = '?'
         self._c = self._conn.cursor()
 
     def __del__(self):
         self._conn.close()
-
-    def _log_exc(self, funcname, e):
-        log_db.error('DBAccess Exception in {0}: {1}'.format(funcname, e))
 
     def _insert(self, table, columns, values):
         columns = to_list(columns) if columns else None

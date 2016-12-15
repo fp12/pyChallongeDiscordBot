@@ -13,24 +13,24 @@ class AutoEnum(Enum):
 
 
 def print_array(title, header, iterable, func):
-    vertSep = '|'
-    arraySep = '='
-    headerSep = '-'
-    lineLen = len(header)
-    arrayLineSeparators = ''.ljust(lineLen, arraySep)
-    headerLineSeparators = vertSep.ljust(lineLen - 1, headerSep) + vertSep
+    vert_sep = '|'
+    array_sep = '='
+    header_sep = '-'
+    line_len = len(header)
+    array_line_separators = ''.ljust(line_len, array_sep)
+    header_line_separators = vert_sep.ljust(line_len - 1, header_sep) + vert_sep
 
     arr = []
-    arr.append(arrayLineSeparators)
-    arr.append(vertSep + ' ' + title.ljust(lineLen - 3) + vertSep)
-    arr.append(headerLineSeparators)
+    arr.append(array_line_separators)
+    arr.append(vert_sep + ' ' + title.ljust(line_len - 3) + vert_sep)
+    arr.append(header_line_separators)
     arr.append(header)
-    arr.append(headerLineSeparators)
+    arr.append(header_line_separators)
     for x in iterable:
         s = func(x)
         if s is not None and s != '':
             arr.append(s)
-    arr.append(arrayLineSeparators)
+    arr.append(array_line_separators)
 
     finalStr = '\n'.join(arr)
     log_main.info(finalStr)

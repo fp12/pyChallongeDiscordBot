@@ -25,10 +25,9 @@ class Encoder():
 
     @profile(Scope.Core)
     def decrypt(self, data):
-        decodedData = b64decode(data)
-        obj = DES.new(self.decodedKey, DES.MODE_OFB,
-                      decodedData[:DES.block_size])
-        return obj.decrypt(decodedData[DES.block_size:]).decode("utf-8")
+        decoded_data = b64decode(data)
+        obj = DES.new(self.decodedKey, DES.MODE_OFB, decoded_data[:DES.block_size])
+        return obj.decrypt(decoded_data[DES.block_size:]).decode("utf-8")
 
 
 encoder = Encoder()
