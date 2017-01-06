@@ -1,16 +1,19 @@
-import asyncio
 import re
+
 import discord
 
 from discord_impl.permissions import Permissions, get_permissions
 from discord_impl.channel_type import ChannelType, get_channel_type
-from challonge_impl.accounts import ChallongeAccess, UserNotFound, UserNameNotSet, APIKeyNotSet, InvalidCredentials, get as get_account
+from challonge_impl.accounts import ChallongeAccess, get as get_account
 from challonge_impl.utils import validate_tournament_state
 from database.core import db
-from const import *
 from utils import print_array
 from log import log_commands_core
-from profiling import Profiler, Scope, profile, profile_async
+from profiling import Profiler, Scope
+
+from const import (T_ValidateCommandContext_BadParameters, T_ValidateCommandContext_BadChannel,
+                   T_ValidateCommandContext_BadPrivileges, T_ValidateCommandContext_BadTournamentState,
+                   T_Log_ValidatedCommand)
 
 
 commandFormat = '| {0:16} | {1:15} | {2:12} | {3:17} | {4:17} | {5:18} | {6:13} |'
@@ -190,7 +193,7 @@ class CommandsHandler:
                 args = ' '.join([v for k, v in postCommand.items() if isinstance(v, str) and k != 'key'])
                 # server for profiling info
                 server = 0 if message.channel.is_private else message.channel.server.id
-                with Profiler(Scope.Command, name=func.__name__, args=args, server=server) as p:
+                with Profiler(Scope.Command, name=func.__name__, args=args, server=server):
                     await func(client, message, **postCommand)
             wrapper.__doc__ = func.__doc__
             return self._add(Command(func.__name__, wrapper, Attributes(**attributes)))
@@ -234,15 +237,15 @@ class CommandsHandler:
 
     def dump(self):
         return print_array('Commands Registered',
-                            commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Challonge', 'Aliases', 'Required Args', 'Optional Args'),
-                            self._commands,
-                            lambda c: commandFormat.format(c.name,
-                                                            c.attributes.minPermissions.name,
-                                                            c.attributes.channelRestrictions.name,
-                                                            c.attributes.challongeAccess.name,
-                                                            '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
-                                                            '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams),
-                                                            '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
+                           commandFormat.format('Name', 'Min Permissions', 'Channel Type', 'Challonge', 'Aliases', 'Required Args', 'Optional Args'),
+                           self._commands,
+                           lambda c: commandFormat.format(c.name,
+                                                          c.attributes.minPermissions.name,
+                                                          c.attributes.channelRestrictions.name,
+                                                          c.attributes.challongeAccess.name,
+                                                          '-' if len(c.aliases) == 0 else '/'.join(c.aliases),
+                                                          '-' if len(c.reqParams) == 0 else '/'.join(c.reqParams),
+                                                          '-' if len(c.optParams) == 0 else '/'.join(c.optParams)))
 
 
 cmds = CommandsHandler()

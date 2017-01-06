@@ -1,4 +1,3 @@
-import asyncio
 from enum import Enum
 from challonge import Account, ChallongeException
 
@@ -65,7 +64,7 @@ async def get(user_id):
 
     newAccount = Account(user.challonge_user_name, encoder.decrypt(user.api_key))
     try:
-        is_valid = await newAccount.is_valid
+        await newAccount.is_valid
     except ChallongeException:
         return None, InvalidCredentials()
 

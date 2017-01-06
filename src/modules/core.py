@@ -1,5 +1,4 @@
 import json
-import asyncio
 import ast
 
 from database.core import db

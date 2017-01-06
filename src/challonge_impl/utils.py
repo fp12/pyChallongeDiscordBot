@@ -1,12 +1,12 @@
-import asyncio
 import re
 import math
 from challonge import ChallongeException
 
 from challonge_impl.accounts import TournamentStateConstraint
-from const import *
 from utils import AutoEnum
 from log import log_challonge
+
+from const import T_OnChallongeException
 
 
 class TournamentState(AutoEnum):

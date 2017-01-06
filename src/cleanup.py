@@ -1,5 +1,4 @@
 import discord
-import challonge
 
 from config import app_config
 from database.core import db

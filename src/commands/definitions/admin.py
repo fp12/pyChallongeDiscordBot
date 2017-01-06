@@ -1,6 +1,4 @@
-import asyncio
 import discord
-
 from challonge import ChallongeException
 
 from config import app_config
@@ -11,7 +9,7 @@ from challonge_impl.accounts import get as get_account
 from database.core import db
 from log import set_level
 from utils import ArrayFormater, paginate
-from const import *
+from const import T_OnChallongeException
 
 
 # DEV ONLY
@@ -43,13 +41,12 @@ async def dump(client, message, **kwargs):
     maxChars = 1800
     what = kwargs.get('what')
     if what is None or what == 'commands':
-        for page in paginate(commands.dump(), maxChars):
+        for page in paginate(cmds.dump(), maxChars):
             await client.send_message(message.author, decorate(page))
     if what is None or what == 'profile':
         pass
     if what is None or what == 'servers':
         a = ArrayFormater('Servers', 3)
-        entries = []
         a.add('Server Name (ID)', 'Owner Name (ID)', 'Trigger')
         for s in db.get_servers():
             server = message.server

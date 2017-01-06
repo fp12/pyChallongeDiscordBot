@@ -1,7 +1,9 @@
 import discord
-import asyncio
 
-from const import *
+from const import (C_RoleName,
+                   T_Log_JoinedServer, T_JoinServer_Header, T_Log_RemovedServer, T_Log_CleanRemovedServer,
+                   T_JoinServer_NeedName, T_JoinServer_NeedKey, T_JoinServer_NeedNothing, T_JoinServer_NeedAll,
+                   T_JoinServer_SetupDone, C_ManagementChannelName)
 from config import app_config
 from log import log_main
 from profiling import profile_async, Scope
@@ -89,8 +91,8 @@ async def on_challonge_role_assigned(server, chRole):
 
     # notify owner
     owner = db.get_user(server.owner.id)
-    needName = owner.challonge_user_name == None
-    needKey = owner.api_key == None
+    needName = owner.challonge_user_name is None
+    needKey = owner.api_key is None
 
     if needName and not needKey:
         msg = T_JoinServer_NeedName

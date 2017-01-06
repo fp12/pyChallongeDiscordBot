@@ -1,15 +1,17 @@
-from datetime import datetime, timedelta
-import asyncio
 import urllib.request
+from datetime import datetime, timedelta
+
 import discord
 
-from const import *
+from const import C_RoleName, T_Info, T_PromoteError, T_DemoteError, T_HelpGlobal, T_RemoveChallongeRoleError
 from discord_impl.permissions import Permissions
 from discord_impl.channel_type import ChannelType
 from database.core import db
-from commands.core import cmds, aliases, required_args, optional_args, helpers, AuthorizedCommandsWrapper, MissingParameters
+from commands.core import cmds, required_args, optional_args, AuthorizedCommandsWrapper, MissingParameters
+from modules.core import modules
 from log import log_commands_def
 
+from utils import get_user_id_from_mention
 
 # SERVER OWNER
 
@@ -58,7 +60,7 @@ async def promote(client, message, **kwargs):
     Arguments:
     member -- mention (@) the member to be granted management rights
     """
-    member_id = utils.get_user_id_from_mention(kwargs.get('member'))
+    member_id = get_user_id_from_mention(kwargs.get('member'))
     member = message.server.get_member(member_id)
     if member:
         for r in message.server.me.roles:
@@ -84,7 +86,7 @@ async def demote(client, message, **kwargs):
     Arguments:
     member -- mention (@) the member to be removed management rights
     """
-    member_id = utils.get_user_id_from_mention(kwargs.get('member'))
+    member_id = get_user_id_from_mention(kwargs.get('member'))
     member = message.server.get_member(member_id)
     if member:
         for r in message.server.me.roles:
@@ -109,13 +111,12 @@ async def leaveserver(client, message, **kwargs):
     channelId = db.get_server(message.server).management_channel_id
     await client.delete_channel(discord.Channel(server=message.server, id=channelId))
     for r in message.server.me.roles:
-        if x.name == C_RoleName:
+        if r.name == C_RoleName:
             try:
-                await client.delete_role(message.server, roles[0])
+                await client.delete_role(message.server, r)
             except discord.errors.HTTPException as e:
                 await client.send_message(message.server.owner, T_RemoveChallongeRoleError.format(e))
-            else:
-                break
+            break
     await client.leave_server(message.server)
 
 

@@ -3,7 +3,6 @@ import asyncio
 from database.core import db
 from challonge_impl.accounts import ChallongeException, get as get_account
 from challonge_impl.utils import TournamentState
-from challonge_impl.events import Events
 from modules.base import Module, Template
 from log import log_modules
 

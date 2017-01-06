@@ -1,8 +1,6 @@
 import time
 from enum import Enum
 
-import utils
-
 
 __enabled = False
 
@@ -24,14 +22,15 @@ class Profiler():
         return self
 
     def __exit__(self, *args):
-        end = time.time()
+        pass
+        # end = time.time()
 
 
 def profile(scope):
     def decorator(func):
         def wrapper(*args, **kwargs):
             if __enabled:
-                with Profiler(scope, name=func.__qualname__, args=repr(args)) as p:
+                with Profiler(scope, name=func.__qualname__, args=repr(args)):
                     return func(*args, **kwargs)
             return func(*args, **kwargs)
         return wrapper
@@ -42,7 +41,7 @@ def profile_async(scope):
     def decorator(func):
         async def wrapper(*args, **kwargs):
             if __enabled:
-                with Profiler(scope, name=func.__qualname__, args=repr(args)) as p:
+                with Profiler(scope, name=func.__qualname__, args=repr(args)):
                     return await func(*args, **kwargs)
             return await func(*args, **kwargs)
         return wrapper

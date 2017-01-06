@@ -1,24 +1,24 @@
-import discord
-import asyncio
+import datetime
 import string
-# import os (needed with cloudconvert)
-# import cloudconvert
+
+import discord
 from challonge import ChallongeException
 
-from const import *
-from utils import *
-# from config import app_config (needed with cloudconvert)
+from const import C_RoleName, T_ChannelDescriptionSeparator, T_OnChallongeException, T_TournamentCreated
+from utils import get_user_id_from_mention
 from log import log_commands_def
 from database.core import db
-from commands.core import *
+from commands.core import cmds, aliases, required_args, optional_args, helpers
 from modules.core import modules
-from challonge_impl.accounts import ChallongeAccess, TournamentStateConstraint
-from challonge_impl.utils import *
-from challonge_impl.events import Events
 from discord_impl.permissions import Permissions
 from discord_impl.channel_type import ChannelType
-
-# cloudconvertapi = cloudconvert.Api(app_config['cloudconvert'])
+from challonge_impl.accounts import ChallongeAccess, TournamentStateConstraint
+from challonge_impl.events import Events
+from challonge_impl.utils import (TournamentState, get_channel_desc, get_date, get_time,
+                                  get_current_matches_repr, get_final_ranking_repr,
+                                  verify_score_format, get_players, get_player, get_next_match,
+                                  get_match, author_is_winner, reverse_score, update_score,
+                                  get_blocking_matches)
 
 
 def get_member(name, server):
@@ -36,7 +36,6 @@ async def update_channel_topic(account, t, client, channel):
     elif desc:
         currentTopic = channel.topic or ''
         index = -1
-        custom_topic = ''
         if currentTopic and len(currentTopic) > 0:
             index = currentTopic.find(T_ChannelDescriptionSeparator)
             if index > -1:
@@ -368,13 +367,14 @@ async def status(client, message, **kwargs):
     """Get the tournament status
     No Arguments
     """
+    account = kwargs.get('account')
     try:
-        t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
+        t = await account.tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
         if t['state'] == 'underway':
-            matchesRepr, exc = await get_current_matches_repr(kwargs.get('account'), t)
+            matchesRepr, exc = await get_current_matches_repr(account, t)
             if exc:
                 await client.send_message(message.channel, exc)
             else:
@@ -750,8 +750,6 @@ async def key(client, message, **kwargs):
             await client.send_message(message.author, '✅ Thanks, your key has been removed from our server!')
 
 
-
-
 @helpers('account', 'tournament_id', 'participant_username', 'tournament_role')
 @cmds.register(channelRestrictions=ChannelType.Tournament,
                challongeAccess=ChallongeAccess.RequiredForHost,
@@ -760,18 +758,19 @@ async def join(client, message, **kwargs):
     """Join the current tournament
     No Arguments
     """
+    account = kwargs.get('account')
     try:
-        participant = await kwargs.get('account').participants.create(kwargs.get('tournament_id'), message.author.name, challonge_username=kwargs.get('participant_username'))
+        await account.participants.create(kwargs.get('tournament_id'), message.author.name, challonge_username=kwargs.get('participant_username'))
     except ChallongeException as e:
         await client.send_message(message.author, T_OnChallongeException.format(e))
     else:
         await client.add_roles(message.author, kwargs.get('tournament_role'))
         await client.send_message(message.channel, '✅ You have successfully joined the tournament')
         try:
-            t = await kwargs.get('account').tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
+            t = await account.tournaments.show(kwargs.get('tournament_id'), include_participants=1, include_matches=1)
         except ChallongeException as e:
             await client.send_message(message.author, T_OnChallongeException.format(e))
         else:
-            await update_channel_topic(kwargs.get('account'), t, client, message.channel)
+            await update_channel_topic(account, t, client, message.channel)
             await modules.on_event(message.server.id, Events.on_join, p1_name=message.author.name, t_name=t['name'], me=message.server.me)
         # TODO more info
