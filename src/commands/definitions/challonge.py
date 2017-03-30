@@ -16,7 +16,7 @@ from challonge_impl.accounts import ChallongeAccess, TournamentStateConstraint
 from challonge_impl.events import Events
 from challonge_impl.utils import (TournamentState, get_channel_desc, get_date, get_time,
                                   get_current_matches_repr, get_final_ranking_repr,
-                                  verify_score_format, get_players, get_player, get_next_match,
+                                  verify_score_format, get_players, get_participant, get_next_match,
                                   get_match, author_is_winner, reverse_score, update_score,
                                   get_blocking_matches)
 
@@ -601,7 +601,7 @@ async def forfeit(client, message, **kwargs):
     and you won't be able to write in this channel anymore
     No Arguments
     """
-    author_id, exc = await get_player(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
+    author_id, exc = await get_participant(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
     if exc:
         await client.send_message(message.channel, exc)
         return
@@ -635,7 +635,7 @@ async def forfeitx(client, message, **kwargs):
     No Arguments
     """
     account, t_id, opponent = kwargs.get('account'), kwargs.get('tournament_id'), kwargs.get('opponent')
-    author_id, exc = await get_player(account, t_id, opponent)
+    author_id, exc = await get_participant(account, t_id, opponent)
     if exc:
         await client.send_message(message.channel, exc)
         return
@@ -684,7 +684,7 @@ async def checkin(client, message, **kwargs):
     """Check-in for the current tournament
     No Arguments
     """
-    author_id, exc = await get_player(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
+    author_id, exc = await get_participant(kwargs.get('account'), kwargs.get('tournament_id'), message.author.name)
     if exc:
         await client.send_message(message.channel, exc)
         return
